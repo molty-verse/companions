@@ -15,6 +15,9 @@ import VerseDetail from "./pages/VerseDetail";
 import MoltyChat from "./pages/MoltyChat";
 import MoltySettings from "./pages/MoltySettings";
 import Settings from "./pages/Settings";
+import Pricing from "./pages/Pricing";
+import Checkout from "./pages/Checkout";
+import CheckoutSuccess from "./pages/CheckoutSuccess";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,6 +41,9 @@ const App = () => (
             <Route path="/m/:moltyId" element={<MoltyChat />} />
             <Route path="/m/:moltyId/settings" element={<MoltySettings />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/pricing" element={<Pricing />} />
+            <Route path="/checkout" element={<Checkout />} />
+            <Route path="/checkout/success" element={<CheckoutSuccess />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
