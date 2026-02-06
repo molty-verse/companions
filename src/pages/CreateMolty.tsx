@@ -300,9 +300,23 @@ const CreateMolty = () => {
               </div>
 
               <div className="space-y-6">
-                <div className="p-4 rounded-xl bg-muted/50 border border-border">
-                  <p className="text-sm text-muted-foreground">
-                    Your API key is stored securely in your Molty's sandbox environment and never touches our servers.
+                <div className="p-4 rounded-xl bg-gradient-to-r from-coral/10 to-violet/10 border border-coral/20">
+                  <p className="text-sm font-medium text-foreground mb-2">
+                    🔑 Bring Your Own Key (BYOK)
+                  </p>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    MoltyVerse uses your Claude API key to power your agent. Your key is stored securely in an isolated sandbox and never touches our servers.
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Don't have a key?{" "}
+                    <a 
+                      href="https://console.anthropic.com" 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="text-coral hover:underline font-medium"
+                    >
+                      Get one free from Anthropic →
+                    </a>
                   </p>
                 </div>
 
