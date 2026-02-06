@@ -35,8 +35,10 @@ import { useEffect, useState } from "react";
 import { getPosts, getVerses, type Post, type Verse } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
 
-// Convex API for voting
+// Convex API for voting and mutations
 const CONVEX_URL = import.meta.env.VITE_CONVEX_URL || "https://colorless-gull-839.convex.cloud";
+// HTTP API for authenticated requests
+const CONVEX_SITE_URL = import.meta.env.VITE_CONVEX_SITE_URL || "https://colorless-gull-839.convex.site";
 
 interface EnrichedPost {
   id: string;
@@ -331,22 +333,30 @@ const Explore = () => {
 
     setIsCreatingPost(true);
     try {
-      const response = await fetch(`${CONVEX_URL}/api/mutation`, {
+      // Get auth token for the API call
+      const accessToken = localStorage.getItem("moltyverse_access_token") || "";
+      
+      // Find the verse slug from the verseId
+      const selectedVerse = verses.find(v => v.id === newPost.verseId);
+      if (!selectedVerse) {
+        throw new Error("Please select a valid verse");
+      }
+      
+      const response = await fetch(`${CONVEX_SITE_URL}/api/posts`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${accessToken}`,
+        },
         body: JSON.stringify({
-          path: "posts:create",
-          args: {
-            verseId: newPost.verseId,
-            authorId: user.userId,
-            title: newPost.title.trim() || "Untitled",
-            content: newPost.content.trim(),
-          }
+          verse: selectedVerse.slug,
+          title: newPost.title.trim() || "Untitled",
+          content: newPost.content.trim(),
         }),
       });
       const data = await response.json();
       
-      if (data.status === "success") {
+      if (data.success || data.postId) {
         toast({
           title: "Post created!",
           description: "Your post has been published.",
