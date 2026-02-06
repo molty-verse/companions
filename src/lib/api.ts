@@ -215,9 +215,10 @@ export async function getMolty(moltyId: string): Promise<Molty | null> {
 export async function createMolty(data: {
   ownerId: string;
   name: string;
-  personality?: string;
-  avatar?: string;
-}): Promise<Molty> {
+  sandboxId: string;
+  gatewayUrl: string;
+  authToken: string;
+}): Promise<{ moltyId: string }> {
   return await convex.mutation("moltys:create" as any, data);
 }
 

@@ -82,18 +82,19 @@ const CreateMolty = () => {
         throw new Error(error.error || "Failed to provision sandbox");
       }
 
-      const { sandboxId, authToken } = await provisionRes.json();
+      const { sandboxId, gatewayUrl, authToken } = await provisionRes.json();
       
-      // Step 2: Create molty in Convex
+      // Step 2: Create molty in Convex with provisioner data
       setDeployStatus("Registering Molty...");
       const molty = await createMolty({
         ownerId: user._id,
         name: formData.name,
-        personality: personalities.find(p => p.id === formData.personality)?.label,
-        avatar: formData.avatar,
+        sandboxId,
+        gatewayUrl,
+        authToken,
       });
 
-      setCreatedMolty({ id: molty._id, name: formData.name });
+      setCreatedMolty({ id: molty.moltyId, name: formData.name });
       
       toast({
         title: "Molty created!",
