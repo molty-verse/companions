@@ -4,13 +4,114 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion } from "framer-motion";
-import { User, Key, Bell, CreditCard, Plug, Shield, Copy, Eye, EyeOff, RefreshCw, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { User, Key, Bell, CreditCard, Plug, Shield, Copy, Eye, EyeOff, RefreshCw, Trash2, Loader2, Check } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import Navigation from "@/components/Navigation";
+import { useAuth } from "@/lib/auth";
+import { convex } from "@/lib/convex";
+
+interface UserProfile {
+  id: string;
+  username: string;
+  type: "agent" | "human";
+  linkedPlatforms: Array<{
+    platform: "discord" | "telegram" | "whatsapp";
+    userId: string;
+    linkedAt: number;
+  }>;
+  createdAt: number;
+}
 
 const Settings = () => {
+  const { user, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
   const [showApiKey, setShowApiKey] = useState(false);
-  const mockApiKey = "mv_sk_1234567890abcdef...";
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  
+  // Form state
+  const [displayName, setDisplayName] = useState("");
+  const [email, setEmail] = useState("");
+  const [bio, setBio] = useState("");
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate("/login");
+    }
+  }, [isAuthenticated, navigate]);
+
+  // Load user profile
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!user?.userId) return;
+      
+      try {
+        setLoading(true);
+        const data = await convex.query("users:getById" as any, { userId: user.userId });
+        if (data) {
+          setProfile(data as UserProfile);
+          setDisplayName(data.username || "");
+          setEmail(user.email || "");
+        }
+      } catch (e) {
+        console.error("Failed to load profile:", e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchProfile();
+  }, [user]);
+
+  const handleSaveProfile = async () => {
+    setSaving(true);
+    try {
+      // In a real implementation, this would call a Convex mutation
+      // await convex.mutation("users:updateProfile", { userId: user?.userId, displayName, bio });
+      await new Promise(resolve => setTimeout(resolve, 500)); // Simulate save
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (e) {
+      console.error("Failed to save profile:", e);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+  };
+
+  const formatDate = (timestamp: number) => {
+    return new Date(timestamp).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
+
+  const isConnected = (platform: string) => {
+    return profile?.linkedPlatforms?.some(lp => lp.platform === platform) || false;
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background font-body grain">
+        <Navigation />
+        <main className="pt-28 pb-16">
+          <div className="container mx-auto px-4 max-w-4xl">
+            <div className="flex items-center justify-center py-20">
+              <Loader2 className="w-8 h-8 animate-spin text-coral" />
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background font-body grain">
@@ -61,7 +162,7 @@ const Settings = () => {
                   {/* Avatar */}
                   <div className="flex items-center gap-4">
                     <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-coral to-violet flex items-center justify-center text-3xl text-white">
-                      🤖
+                      {profile?.type === "agent" ? "🤖" : "👤"}
                     </div>
                     <div>
                       <Button variant="outline" className="rounded-xl">Change Avatar</Button>
@@ -69,40 +170,67 @@ const Settings = () => {
                     </div>
                   </div>
 
+                  {/* Account Info */}
+                  <div className="p-4 bg-muted/30 rounded-xl">
+                    <p className="text-sm text-muted-foreground">
+                      Member since {profile?.createdAt ? formatDate(profile.createdAt) : "—"}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Account type: <span className="capitalize font-medium text-foreground">{profile?.type || "human"}</span>
+                    </p>
+                  </div>
+
                   {/* Form fields */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <Label>Display Name</Label>
                       <Input 
-                        defaultValue="shauryaagg" 
+                        value={displayName}
+                        onChange={(e) => setDisplayName(e.target.value)}
                         className="h-12 rounded-xl bg-muted/50 border-0"
                       />
                     </div>
                     <div className="space-y-2">
                       <Label>Username</Label>
                       <Input 
-                        defaultValue="@shauryaagg" 
-                        className="h-12 rounded-xl bg-muted/50 border-0"
+                        value={`@${profile?.username || ""}`}
+                        disabled
+                        className="h-12 rounded-xl bg-muted/50 border-0 opacity-60"
                       />
+                      <p className="text-xs text-muted-foreground">Username cannot be changed</p>
                     </div>
                     <div className="space-y-2 md:col-span-2">
                       <Label>Email</Label>
                       <Input 
                         type="email"
-                        defaultValue="shaurya@example.com" 
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
                         className="h-12 rounded-xl bg-muted/50 border-0"
                       />
                     </div>
                     <div className="space-y-2 md:col-span-2">
                       <Label>Bio</Label>
                       <textarea 
+                        value={bio}
+                        onChange={(e) => setBio(e.target.value)}
                         className="w-full h-24 p-4 rounded-xl bg-muted/50 border-0 resize-none focus:ring-2 focus:ring-coral/20 focus:outline-none"
                         placeholder="Tell us about yourself..."
                       />
                     </div>
                   </div>
 
-                  <Button className="shadow-warm">Save Changes</Button>
+                  <Button 
+                    className="shadow-warm"
+                    onClick={handleSaveProfile}
+                    disabled={saving}
+                  >
+                    {saving ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : saved ? (
+                      <Check className="w-4 h-4 mr-2" />
+                    ) : null}
+                    {saved ? "Saved!" : "Save Changes"}
+                  </Button>
                 </div>
               </motion.div>
             </TabsContent>
@@ -120,14 +248,14 @@ const Settings = () => {
                       <Key className="w-5 h-5 text-coral" />
                     </div>
                     <div>
-                      <h3 className="font-display font-bold">API Key</h3>
+                      <h3 className="font-display font-bold">MoltyVerse API Key</h3>
                       <p className="text-sm text-muted-foreground">Use this to authenticate API requests</p>
                     </div>
                   </div>
                   
                   <div className="flex items-center gap-3 p-4 bg-muted/50 rounded-xl">
                     <code className="flex-1 font-mono text-sm">
-                      {showApiKey ? "mv_sk_1234567890abcdefghijklmnop" : mockApiKey}
+                      {showApiKey ? `mv_${user?.userId?.slice(0, 20) || ""}...` : "mv_••••••••••••••••..."}
                     </code>
                     <Button 
                       variant="ghost" 
@@ -136,7 +264,11 @@ const Settings = () => {
                     >
                       {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </Button>
-                    <Button variant="ghost" size="icon">
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      onClick={() => copyToClipboard(`mv_${user?.userId || ""}`)}
+                    >
                       <Copy className="w-4 h-4" />
                     </Button>
                   </div>
@@ -208,9 +340,9 @@ const Settings = () => {
                   
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {[
-                      { label: "API Calls", used: "2,341", limit: "10,000" },
-                      { label: "Moltys", used: "3", limit: "5" },
-                      { label: "Storage", used: "156 MB", limit: "1 GB" },
+                      { label: "API Calls", used: "—", limit: "10,000" },
+                      { label: "Moltys", used: "—", limit: "5" },
+                      { label: "Storage", used: "—", limit: "1 GB" },
                       { label: "Team Members", used: "1", limit: "1" },
                     ].map((item) => (
                       <div key={item.label} className="p-4 bg-muted/50 rounded-xl">
@@ -224,14 +356,11 @@ const Settings = () => {
                 <div className="card-living">
                   <h3 className="font-display font-bold mb-4">Payment Method</h3>
                   <div className="flex items-center gap-4 p-4 bg-muted/50 rounded-xl">
-                    <div className="w-12 h-8 bg-gradient-to-r from-blue-600 to-blue-400 rounded flex items-center justify-center text-white text-xs font-bold">
-                      VISA
-                    </div>
                     <div className="flex-1">
-                      <p className="font-medium">•••• •••• •••• 4242</p>
-                      <p className="text-sm text-muted-foreground">Expires 12/2027</p>
+                      <p className="font-medium text-muted-foreground">No payment method on file</p>
+                      <p className="text-sm text-muted-foreground">Add a payment method to upgrade your plan</p>
                     </div>
-                    <Button variant="outline" size="sm">Update</Button>
+                    <Button variant="outline" size="sm">Add Card</Button>
                   </div>
                 </div>
               </motion.div>
@@ -248,26 +377,38 @@ const Settings = () => {
                 
                 <div className="space-y-4">
                   {[
-                    { name: "Discord", icon: "🎮", connected: true, description: "Deploy Moltys to Discord servers" },
-                    { name: "Telegram", icon: "✈️", connected: false, description: "Chat with Moltys on Telegram" },
-                    { name: "WhatsApp", icon: "💬", connected: false, description: "Connect via WhatsApp Business" },
-                    { name: "Slack", icon: "💼", connected: false, description: "Add Moltys to Slack workspaces" },
-                  ].map((service) => (
-                    <div key={service.name} className="flex items-center justify-between p-4 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-background flex items-center justify-center text-2xl">
-                          {service.icon}
+                    { name: "Discord", platform: "discord", icon: "🎮", description: "Deploy Moltys to Discord servers" },
+                    { name: "Telegram", platform: "telegram", icon: "✈️", description: "Chat with Moltys on Telegram" },
+                    { name: "WhatsApp", platform: "whatsapp", icon: "💬", description: "Connect via WhatsApp Business" },
+                    { name: "Slack", platform: "slack", icon: "💼", description: "Add Moltys to Slack workspaces" },
+                  ].map((service) => {
+                    const connected = isConnected(service.platform);
+                    const linkedPlatform = profile?.linkedPlatforms?.find(lp => lp.platform === service.platform);
+                    
+                    return (
+                      <div key={service.name} className="flex items-center justify-between p-4 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors">
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-xl bg-background flex items-center justify-center text-2xl">
+                            {service.icon}
+                          </div>
+                          <div>
+                            <p className="font-medium">{service.name}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {connected 
+                                ? `Connected ${linkedPlatform ? formatDate(linkedPlatform.linkedAt) : ""}` 
+                                : service.description}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-medium">{service.name}</p>
-                          <p className="text-sm text-muted-foreground">{service.description}</p>
-                        </div>
+                        <Button 
+                          variant={connected ? "outline" : "default"} 
+                          className={connected ? "" : "shadow-warm"}
+                        >
+                          {connected ? "Disconnect" : "Connect"}
+                        </Button>
                       </div>
-                      <Button variant={service.connected ? "outline" : "default"} className={service.connected ? "" : "shadow-warm"}>
-                        {service.connected ? "Disconnect" : "Connect"}
-                      </Button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </motion.div>
             </TabsContent>
