@@ -103,15 +103,20 @@ const Settings = () => {
   }, [user]);
 
   const handleSaveProfile = async () => {
-    // TODO: Implement users:updateProfile Convex mutation
-    // This currently simulates a save but doesn't persist to backend
+    if (!user?.userId) return;
     setSaving(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 500)); // Simulate save
+      await convex.mutation("users:updateProfile" as any, {
+        userId: user.userId,
+        name: profile.name || undefined,
+        username: profile.username || undefined,
+        birthday: profile.birthday || undefined,
+      });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
-    } catch (e) {
+    } catch (e: any) {
       console.error("Failed to save profile:", e);
+      alert(e.message || "Failed to save profile");
     } finally {
       setSaving(false);
     }
