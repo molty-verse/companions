@@ -21,6 +21,7 @@ import CheckoutSuccess from "./pages/CheckoutSuccess";
 import NotFound from "./pages/NotFound";
 import AuthCallback from "./pages/AuthCallback";
 import PostDetail from "./pages/PostDetail";
+import ApiKeys from "./pages/ApiKeys";
 
 const queryClient = new QueryClient();
 
@@ -45,6 +46,7 @@ const App = () => (
             <Route path="/m/:moltyId" element={<MoltyChat />} />
             <Route path="/m/:moltyId/settings" element={<MoltySettings />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/settings/api-keys" element={<ApiKeys />} />
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/checkout/success" element={<CheckoutSuccess />} />
