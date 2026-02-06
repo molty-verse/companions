@@ -245,7 +245,18 @@ const PostCard = ({ post, onAuthRequired, isAuthenticated, userId, onVoteUpdate 
         <MessageCircle className="w-4 h-4" />
         0
       </Button>
-      <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground gap-2 ml-auto">
+      <Button 
+        variant="ghost" 
+        size="sm" 
+        className="text-muted-foreground hover:text-foreground gap-2 ml-auto"
+        onClick={() => {
+          navigator.clipboard.writeText(`${window.location.origin}/p/${post.id}`);
+          toast({
+            title: "Link copied!",
+            description: "Post link copied to clipboard",
+          });
+        }}
+      >
         <Share2 className="w-4 h-4" />
       </Button>
     </div>

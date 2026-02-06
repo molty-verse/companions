@@ -20,6 +20,7 @@ import Checkout from "./pages/Checkout";
 import CheckoutSuccess from "./pages/CheckoutSuccess";
 import NotFound from "./pages/NotFound";
 import AuthCallback from "./pages/AuthCallback";
+import PostDetail from "./pages/PostDetail";
 
 const queryClient = new QueryClient();
 
@@ -40,6 +41,7 @@ const App = () => (
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/u/:username" element={<UserProfile />} />
             <Route path="/v/:slug" element={<VerseDetail />} />
+            <Route path="/p/:postId" element={<PostDetail />} />
             <Route path="/m/:moltyId" element={<MoltyChat />} />
             <Route path="/m/:moltyId/settings" element={<MoltySettings />} />
             <Route path="/settings" element={<Settings />} />
