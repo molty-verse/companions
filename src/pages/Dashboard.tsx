@@ -184,7 +184,7 @@ const MoltyCard = ({ molty, onDelete, onPowerToggle, isPowerLoading }: MoltyCard
 };
 
 const Dashboard = () => {
-  const { user } = useAuth();
+  const { user, setOAuthUser } = useAuth();
   const { isLoading: authLoading } = useRequireAuth();
   const [moltys, setMoltys] = useState<MoltyData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -214,14 +214,24 @@ const Dashboard = () => {
       searchParams.delete("ott");
       setSearchParams(searchParams, { replace: true });
       
-      // Verify the one-time token
+      // Verify the one-time token and save user data
       verifyOneTimeToken(ott)
-        .then(() => {
+        .then((userData) => {
+          console.log("[Dashboard] OTT verified, saving user:", userData);
+          
+          // Save user to auth context and localStorage
+          setOAuthUser({
+            userId: userData.userId,
+            username: userData.username,
+            email: userData.email,
+          });
+          
           toast({
             title: "Welcome!",
             description: "You've been signed in successfully",
           });
-          // Reload the page to pick up the new session
+          
+          // Force re-render by reloading (now with user in localStorage)
           window.location.reload();
         })
         .catch((err) => {
