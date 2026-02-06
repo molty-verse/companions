@@ -1,11 +1,23 @@
-// Convex client configuration
-import { ConvexReactClient } from "convex/react";
+// Convex client for direct query/mutation calls
+// Use this for moltys, posts, verses, etc.
+// Auth endpoints use HTTP routes in api.ts
 
-// MoltyVerse Convex deployment
-export const convex = new ConvexReactClient(
-  import.meta.env.VITE_CONVEX_URL || "https://colorless-gull-839.convex.cloud"
-);
+import { ConvexHttpClient } from "convex/browser";
 
-// HTTP API base (for REST endpoints like auth)
-export const CONVEX_HTTP_URL = 
-  import.meta.env.VITE_CONVEX_HTTP_URL || "https://colorless-gull-839.convex.site";
+// The Convex deployment URL
+const CONVEX_URL = "https://colorless-gull-839.convex.cloud";
+
+// Create a singleton client
+export const convex = new ConvexHttpClient(CONVEX_URL);
+
+// Helper to set auth token for authenticated queries
+export function setConvexAuth(token: string | null) {
+  if (token) {
+    convex.setAuth(token);
+  } else {
+    convex.clearAuth();
+  }
+}
+
+// Re-export for convenience
+export { CONVEX_URL };
