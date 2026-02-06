@@ -44,7 +44,10 @@ const AuthCallback = () => {
           title: "Welcome!",
           description: "You've been signed in successfully",
         });
-        navigate("/dashboard");
+        
+        // Use window.location to force full page reload
+        // This ensures AuthProvider re-reads from localStorage
+        window.location.href = "/dashboard";
       })
       .catch((err) => {
         console.error("[AuthCallback] OTT verification failed:", err);
