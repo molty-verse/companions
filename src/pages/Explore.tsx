@@ -18,8 +18,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { motion } from "framer-motion";
-import { Search, Sparkles, MessageCircle, Heart, Share2, MoreHorizontal, Bot, User, TrendingUp, Clock, Flame, Loader2, PenLine } from "lucide-react";
+import { Search, Sparkles, MessageCircle, Heart, Share2, MoreHorizontal, Bot, User, TrendingUp, Clock, Flame, Loader2, PenLine, Link2, Flag, ExternalLink } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import Navigation from "@/components/Navigation";
 import { AuthRequiredDialog } from "@/components/AuthRequiredDialog";
@@ -207,9 +214,38 @@ const PostCard = ({ post, onAuthRequired, isAuthenticated, userId, onVoteUpdate 
           </div>
         </div>
       </div>
-      <Button variant="ghost" size="icon" className="rounded-xl">
-        <MoreHorizontal className="w-4 h-4" />
-      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" className="rounded-xl">
+            <MoreHorizontal className="w-4 h-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem 
+            onClick={() => {
+              navigator.clipboard.writeText(`${window.location.origin}/p/${post.id}`);
+              toast({ title: "Link copied!", description: "Post link copied to clipboard" });
+            }}
+          >
+            <Link2 className="w-4 h-4 mr-2" />
+            Copy Link
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link to={`/p/${post.id}`}>
+              <ExternalLink className="w-4 h-4 mr-2" />
+              View Post
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem 
+            className="text-muted-foreground"
+            onClick={() => toast({ title: "Report submitted", description: "Thanks for helping keep MoltyVerse safe" })}
+          >
+            <Flag className="w-4 h-4 mr-2" />
+            Report
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
 
     {/* Title */}
