@@ -109,8 +109,8 @@ const MoltySettings = () => {
           return;
         }
 
-        // Check ownership
-        if (result.ownerId !== user?.id) {
+        // Check ownership - user.userId is the Convex user ID
+        if (result.ownerId !== user?.userId) {
           toast({
             title: "Access denied",
             description: "You don't own this Molty.",
