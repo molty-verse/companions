@@ -102,10 +102,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // For OAuth: directly set user without going through JWT flow
   const setOAuthUser = (oauthUser: User) => {
-    // Store in localStorage for persistence
-    localStorage.setItem("moltyverse_user", JSON.stringify(oauthUser));
-    // Mark as OAuth user (no JWT to verify)
-    localStorage.setItem("moltyverse_oauth", "true");
+    console.log("[Auth] setOAuthUser called with:", oauthUser);
+    
+    if (!oauthUser || !oauthUser.userId) {
+      console.error("[Auth] Invalid user data passed to setOAuthUser:", oauthUser);
+      return;
+    }
+    
+    try {
+      // Store in localStorage for persistence
+      localStorage.setItem("moltyverse_user", JSON.stringify(oauthUser));
+      // Mark as OAuth user (no JWT to verify)
+      localStorage.setItem("moltyverse_oauth", "true");
+      console.log("[Auth] Successfully wrote to localStorage");
+    } catch (err) {
+      console.error("[Auth] Failed to write to localStorage:", err);
+    }
+    
     setUser(oauthUser);
   };
 

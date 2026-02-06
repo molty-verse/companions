@@ -33,14 +33,23 @@ const AuthCallback = () => {
     // Verify the one-time token and get user data
     verifyOneTimeToken(ott)
       .then((userData) => {
-        console.log("[AuthCallback] OTT verified, user:", userData);
+        console.log("[AuthCallback] OTT verified, full userData:", JSON.stringify(userData));
+        
+        if (!userData || !userData.userId) {
+          console.error("[AuthCallback] Invalid userData received:", userData);
+          setError("Invalid user data received");
+          setTimeout(() => navigate("/login"), 2000);
+          return;
+        }
         
         // Set user in auth context (this also persists to localStorage)
-        setOAuthUser({
+        const userToStore = {
           userId: userData.userId,
           username: userData.username,
           email: userData.email,
-        });
+        };
+        console.log("[AuthCallback] Storing user:", JSON.stringify(userToStore));
+        setOAuthUser(userToStore);
         
         toast({
           title: "Welcome!",
