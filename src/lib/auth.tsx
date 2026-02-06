@@ -6,6 +6,7 @@ import {
   getAccessToken,
   verifyToken,
   login as apiLogin,
+  register as apiRegister,
   logout as apiLogout,
   clearTokens,
   handleOAuthCallback,
@@ -16,6 +17,7 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
+  register: (username: string, email: string, password: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -80,6 +82,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(result.user);
   };
 
+  const register = async (username: string, email: string, password: string) => {
+    const result = await apiRegister(username, email, password);
+    setUser(result.user);
+  };
+
   const logout = () => {
     apiLogout();
     setUser(null);
@@ -92,6 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         isAuthenticated: !!user,
         login,
+        register,
         logout,
       }}
     >

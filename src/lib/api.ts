@@ -134,14 +134,24 @@ async function fetchAPI<T>(
 // AUTH API (HTTP routes)
 // ============================================
 
-// OAuth handles registration now - users sign up via Discord/Google
-// This function is kept for backward compatibility but shouldn't be called
 export async function register(
   username: string,
   email: string,
   password: string
 ): Promise<{ user: User; accessToken: string; refreshToken: string }> {
-  throw new Error("Registration via email/password is disabled. Please use OAuth (Discord/Google).");
+  const result = await fetchAPI<AuthResponse>("/auth/register", {
+    method: "POST",
+    body: JSON.stringify({ username, email, password }),
+  });
+  
+  const user: User = {
+    userId: result.userId,
+    username: result.username,
+    email: result.email,
+  };
+  
+  setTokens({ accessToken: result.accessToken, refreshToken: result.refreshToken, user });
+  return { user, accessToken: result.accessToken, refreshToken: result.refreshToken };
 }
 
 // Handle OAuth callback - call this when redirected back from OAuth provider
