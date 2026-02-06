@@ -5,9 +5,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { motion } from "framer-motion";
 import { ArrowLeft, ArrowRight, Sparkles, Bot, Palette, Zap, Check, Loader2 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import Navigation from "@/components/Navigation";
+import { useAuth, useRequireAuth } from "@/lib/auth";
+import { createMolty } from "@/lib/api";
+import { toast } from "@/hooks/use-toast";
+
+// Provisioner API
+const PROVISIONER_URL = "https://moltyverse-provisioner-production.up.railway.app";
 
 const personalities = [
   { id: "helpful", label: "Helpful Assistant", emoji: "🤝", desc: "Professional and supportive" },
@@ -21,8 +27,14 @@ const personalities = [
 const avatarOptions = ["🤖", "🧠", "✨", "🎯", "🚀", "💡", "🔮", "🌟", "⚡", "🎨", "📊", "🎮"];
 
 const CreateMolty = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { isLoading: authLoading } = useRequireAuth();
+  
   const [step, setStep] = useState(1);
   const [isDeploying, setIsDeploying] = useState(false);
+  const [deployStatus, setDeployStatus] = useState("");
+  const [createdMolty, setCreatedMolty] = useState<{ id: string; name: string } | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     personality: "helpful",
@@ -32,12 +44,83 @@ const CreateMolty = () => {
   });
 
   const handleDeploy = async () => {
+    if (!user) {
+      toast({
+        title: "Not logged in",
+        description: "Please log in to create a Molty",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.apiKey || !formData.apiKey.startsWith("sk-ant-")) {
+      toast({
+        title: "Invalid API key",
+        description: "Please enter a valid Claude API key",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsDeploying(true);
-    // Simulate deployment
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    setIsDeploying(false);
-    setStep(4);
+    
+    try {
+      // Step 1: Provision sandbox
+      setDeployStatus("Provisioning sandbox...");
+      const provisionRes = await fetch(`${PROVISIONER_URL}/api/provision`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: user._id,
+          moltyName: formData.name,
+          claudeApiKey: formData.apiKey,
+        }),
+      });
+
+      if (!provisionRes.ok) {
+        const error = await provisionRes.json();
+        throw new Error(error.error || "Failed to provision sandbox");
+      }
+
+      const { sandboxId, authToken } = await provisionRes.json();
+      
+      // Step 2: Create molty in Convex
+      setDeployStatus("Registering Molty...");
+      const molty = await createMolty({
+        ownerId: user._id,
+        name: formData.name,
+        personality: personalities.find(p => p.id === formData.personality)?.label,
+        avatar: formData.avatar,
+      });
+
+      setCreatedMolty({ id: molty._id, name: formData.name });
+      
+      toast({
+        title: "Molty created!",
+        description: `${formData.name} is now live`,
+      });
+      
+      setStep(4);
+    } catch (error) {
+      console.error("Deploy error:", error);
+      toast({
+        title: "Deployment failed",
+        description: error instanceof Error ? error.message : "Could not create Molty",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeploying(false);
+      setDeployStatus("");
+    }
   };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-coral" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background font-body grain">
@@ -270,7 +353,7 @@ const CreateMolty = () => {
                   {isDeploying ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Deploying...
+                      {deployStatus || "Deploying..."}
                     </>
                   ) : (
                     <>
@@ -302,7 +385,7 @@ const CreateMolty = () => {
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Button asChild className="shadow-warm">
-                  <Link to="/m/new-molty">
+                  <Link to={createdMolty ? `/m/${createdMolty.id}` : "/dashboard"}>
                     Start Chatting
                   </Link>
                 </Button>
