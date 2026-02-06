@@ -3,65 +3,130 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { motion } from "framer-motion";
-import { ArrowLeft, Send, Bot, User, Settings, Share2, Heart, MoreVertical, Sparkles, Copy, Check } from "lucide-react";
+import { ArrowLeft, Send, Bot, Settings, Share2, Heart, Loader2, Sparkles, Copy, Check, AlertCircle } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { useState, useRef, useEffect } from "react";
+import { useAuth, useRequireAuth } from "@/lib/auth";
+import { convex } from "@/lib/convex";
+import { getAccessToken } from "@/lib/api";
 
-// Mock molty data
-const mockMolty = {
-  id: "molty-1",
-  name: "CodeBuddy",
-  avatar: "🤖",
-  personality: "Helpful coding companion",
-  owner: { name: "codecreator", avatar: "👨‍💻" },
-  followers: 456,
-  status: "online"
-};
+interface Message {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  timestamp: string;
+}
 
-// Mock messages
-const initialMessages = [
-  {
-    id: "1",
-    role: "assistant",
-    content: "Hey! I'm CodeBuddy, your friendly coding companion. I can help you debug, explain concepts, or just chat about tech. What's on your mind? 💻",
-    timestamp: "2 min ago"
-  }
-];
+interface MoltyData {
+  _id: string;
+  name: string;
+  status: string;
+  gatewayUrl: string;
+  authToken: string;
+}
 
 const MoltyChat = () => {
   const { moltyId } = useParams();
-  const [messages, setMessages] = useState(initialMessages);
+  const { user } = useAuth();
+  const { isLoading: authLoading } = useRequireAuth();
+  
+  const [molty, setMolty] = useState<MoltyData | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSending, setIsSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const handleSend = async () => {
-    if (!input.trim()) return;
+  // Fetch molty data
+  useEffect(() => {
+    async function fetchMolty() {
+      if (!moltyId) return;
+      
+      try {
+        const result = await convex.query("moltys:getById" as any, { moltyId });
+        if (result) {
+          setMolty(result);
+          // Add welcome message
+          setMessages([{
+            id: "welcome",
+            role: "assistant",
+            content: `Hey! I'm ${result.name}. How can I help you today? 💬`,
+            timestamp: "Just now"
+          }]);
+        } else {
+          setError("Molty not found");
+        }
+      } catch (e) {
+        console.error("Failed to fetch molty:", e);
+        setError("Failed to load Molty");
+      } finally {
+        setIsLoading(false);
+      }
+    }
 
-    const userMessage = {
+    fetchMolty();
+  }, [moltyId]);
+
+  // Scroll to bottom on new messages
+  useEffect(() => {
+    scrollRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const handleSend = async () => {
+    if (!input.trim() || !molty?.gatewayUrl || !molty?.authToken) return;
+
+    const userMessage: Message = {
       id: Date.now().toString(),
-      role: "user" as const,
+      role: "user",
       content: input,
       timestamp: "Just now"
     };
 
     setMessages(prev => [...prev, userMessage]);
     setInput("");
-    setIsTyping(true);
+    setIsSending(true);
 
-    // Simulate AI response
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    const aiMessage = {
-      id: (Date.now() + 1).toString(),
-      role: "assistant" as const,
-      content: "That's a great question! Let me think about that... In my experience, the best approach would be to break down the problem into smaller parts. Would you like me to elaborate on any specific aspect?",
-      timestamp: "Just now"
-    };
+    try {
+      // Call the OpenClaw gateway
+      const response = await fetch(`${molty.gatewayUrl}/api/message`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${molty.authToken}`,
+        },
+        body: JSON.stringify({ message: input }),
+      });
 
-    setMessages(prev => [...prev, aiMessage]);
-    setIsTyping(false);
+      if (!response.ok) {
+        throw new Error(`Gateway error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      const aiMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: data.response || data.message || "I received your message but couldn't generate a response.",
+        timestamp: "Just now"
+      };
+
+      setMessages(prev => [...prev, aiMessage]);
+    } catch (e) {
+      console.error("Failed to send message:", e);
+      
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: "Sorry, I couldn't process that message. The gateway might be offline or there was a connection error.",
+        timestamp: "Just now"
+      };
+      
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const copyMessage = (id: string, content: string) => {
@@ -70,9 +135,28 @@ const MoltyChat = () => {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  useEffect(() => {
-    scrollRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  if (authLoading || isLoading) {
+    return (
+      <div className="h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-coral" />
+      </div>
+    );
+  }
+
+  if (error || !molty) {
+    return (
+      <div className="h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <AlertCircle className="w-16 h-16 mx-auto mb-4 text-red-500" />
+          <h1 className="font-display text-2xl font-bold mb-2">Molty Not Found</h1>
+          <p className="text-muted-foreground mb-6">{error || "This Molty doesn't exist or you don't have access."}</p>
+          <Button asChild>
+            <Link to="/dashboard">Back to Dashboard</Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen bg-background font-body flex flex-col">
@@ -90,21 +174,23 @@ const MoltyChat = () => {
               <div className="flex items-center gap-3">
                 <div className="relative">
                   <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet/20 to-coral/20 flex items-center justify-center text-xl">
-                    {mockMolty.avatar}
+                    🤖
                   </div>
                   <div className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-card ${
-                    mockMolty.status === 'online' ? 'bg-green-500' : 'bg-gray-400'
+                    molty.status === 'online' ? 'bg-green-500' : 'bg-gray-400'
                   }`} />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h1 className="font-display font-bold">{mockMolty.name}</h1>
+                    <h1 className="font-display font-bold">{molty.name}</h1>
                     <Badge variant="secondary" className="bg-violet/10 text-violet text-xs">
                       <Bot className="w-3 h-3 mr-1" />
                       Agent
                     </Badge>
                   </div>
-                  <p className="text-xs text-muted-foreground">{mockMolty.personality}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {molty.status === "online" ? "Online" : "Offline"}
+                  </p>
                 </div>
               </div>
             </div>
@@ -132,7 +218,7 @@ const MoltyChat = () => {
                 key={message.id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.1 }}
+                transition={{ delay: idx * 0.05 }}
                 className={`flex gap-3 ${message.role === 'user' ? 'flex-row-reverse' : ''}`}
               >
                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
@@ -140,7 +226,7 @@ const MoltyChat = () => {
                     ? 'bg-gradient-to-br from-violet/20 to-coral/20' 
                     : 'bg-muted'
                 }`}>
-                  {message.role === 'assistant' ? mockMolty.avatar : '👤'}
+                  {message.role === 'assistant' ? '🤖' : '👤'}
                 </div>
                 <div className={`group flex flex-col max-w-[80%] ${message.role === 'user' ? 'items-end' : ''}`}>
                   <div className={`rounded-2xl px-4 py-3 ${
@@ -148,7 +234,7 @@ const MoltyChat = () => {
                       ? 'bg-card shadow-soft' 
                       : 'bg-coral text-white'
                   }`}>
-                    <p className="text-sm leading-relaxed">{message.content}</p>
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
                   </div>
                   <div className="flex items-center gap-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <span className="text-xs text-muted-foreground">{message.timestamp}</span>
@@ -168,14 +254,14 @@ const MoltyChat = () => {
             ))}
 
             {/* Typing indicator */}
-            {isTyping && (
+            {isSending && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="flex gap-3"
               >
                 <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet/20 to-coral/20 flex items-center justify-center">
-                  {mockMolty.avatar}
+                  🤖
                 </div>
                 <div className="bg-card shadow-soft rounded-2xl px-4 py-3">
                   <div className="flex gap-1">
@@ -195,31 +281,45 @@ const MoltyChat = () => {
       {/* Input */}
       <div className="sticky bottom-0 glass border-t border-border p-4">
         <div className="container mx-auto max-w-3xl">
-          <form 
-            onSubmit={(e) => { e.preventDefault(); handleSend(); }}
-            className="flex gap-3"
-          >
-            <div className="flex-1 relative">
-              <Input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder={`Message ${mockMolty.name}...`}
-                className="h-12 rounded-xl bg-card border-0 shadow-soft focus:ring-2 focus:ring-coral/20 pr-12"
-              />
-              <Button 
-                type="submit"
-                size="icon"
-                disabled={!input.trim() || isTyping}
-                className="absolute right-1 top-1 h-10 w-10 rounded-xl shadow-warm"
-              >
-                <Send className="w-4 h-4" />
-              </Button>
+          {molty.status !== "online" ? (
+            <div className="text-center py-2 text-muted-foreground">
+              <AlertCircle className="w-5 h-5 inline mr-2" />
+              This Molty is currently offline
             </div>
-          </form>
-          <p className="text-xs text-center text-muted-foreground mt-3">
-            <Sparkles className="w-3 h-3 inline mr-1" />
-            Powered by Claude • Your messages are private
-          </p>
+          ) : (
+            <>
+              <form 
+                onSubmit={(e) => { e.preventDefault(); handleSend(); }}
+                className="flex gap-3"
+              >
+                <div className="flex-1 relative">
+                  <Input
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder={`Message ${molty.name}...`}
+                    disabled={isSending}
+                    className="h-12 rounded-xl bg-card border-0 shadow-soft focus:ring-2 focus:ring-coral/20 pr-12"
+                  />
+                  <Button 
+                    type="submit"
+                    size="icon"
+                    disabled={!input.trim() || isSending}
+                    className="absolute right-1 top-1 h-10 w-10 rounded-xl shadow-warm"
+                  >
+                    {isSending ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Send className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
+              </form>
+              <p className="text-xs text-center text-muted-foreground mt-3">
+                <Sparkles className="w-3 h-3 inline mr-1" />
+                Powered by Claude • Your messages are private
+              </p>
+            </>
+          )}
         </div>
       </div>
     </div>
