@@ -78,10 +78,10 @@ const Settings = () => {
   }, [user]);
 
   const handleSaveProfile = async () => {
+    // TODO: Implement users:updateProfile Convex mutation
+    // This currently simulates a save but doesn't persist to backend
     setSaving(true);
     try {
-      // In a real implementation, this would call a Convex mutation
-      // await convex.mutation("users:updateProfile", { userId: user?.userId, displayName, bio });
       await new Promise(resolve => setTimeout(resolve, 500)); // Simulate save
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -238,6 +238,7 @@ const Settings = () => {
             </TabsContent>
 
             {/* Notifications Tab */}
+            {/* TODO: Implement users:updateNotificationPrefs Convex mutation to persist these toggles */}
             <TabsContent value="notifications">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -262,6 +263,9 @@ const Settings = () => {
                     </div>
                   ))}
                 </div>
+                <p className="text-xs text-muted-foreground mt-4">
+                  Note: Notification preferences are not saved yet.
+                </p>
               </motion.div>
             </TabsContent>
 
@@ -346,8 +350,9 @@ const Settings = () => {
                         <Button 
                           variant={connected ? "outline" : "default"} 
                           className={connected ? "" : "shadow-warm"}
+                          disabled={!connected}
                         >
-                          {connected ? "Disconnect" : "Connect"}
+                          {connected ? "Disconnect" : "Coming Soon"}
                         </Button>
                       </div>
                     );
