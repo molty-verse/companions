@@ -110,8 +110,9 @@ const PostCard = ({ post, onAuthRequired, isAuthenticated, userId, onVoteUpdate 
           }),
         });
         const data = await response.json();
-        if (data.status === "success") {
-          setHasVoted(data.value);
+        if (data.status === "success" && data.value) {
+          // data.value is { hasVoted: boolean }
+          setHasVoted(data.value.hasVoted === true);
         }
       } catch (e) {
         console.error("Failed to check vote status:", e);
