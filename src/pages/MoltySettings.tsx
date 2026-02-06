@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
 import { ArrowLeft, Save, Bot, Brain, Wrench, Shield, Loader2 } from "lucide-react";
-import Navbar from "@/components/Navbar";
+import Navigation from "@/components/Navigation";
 import { ConvexHttpClient } from "convex/browser";
 
 const convex = new ConvexHttpClient(import.meta.env.VITE_CONVEX_URL || "https://colorless-gull-839.convex.cloud");
@@ -189,7 +189,7 @@ const MoltySettings = () => {
   if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-canvas-warm">
-        <Navbar />
+        <Navigation />
         <div className="flex items-center justify-center h-[60vh]">
           <Loader2 className="w-8 h-8 animate-spin text-coral" />
         </div>
@@ -203,7 +203,7 @@ const MoltySettings = () => {
 
   return (
     <div className="min-h-screen bg-canvas-warm">
-      <Navbar />
+      <Navigation />
       
       <main className="max-w-4xl mx-auto px-4 py-8">
         {/* Header */}
