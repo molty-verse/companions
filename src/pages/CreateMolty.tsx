@@ -4,7 +4,14 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { motion } from "framer-motion";
-import { ArrowLeft, ArrowRight, Sparkles, Bot, Palette, Zap, Check, Loader2, Key } from "lucide-react";
+import { ArrowLeft, ArrowRight, Sparkles, Bot, Palette, Zap, Check, Loader2, Key, Crown, Rocket } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import Navigation from "@/components/Navigation";
@@ -47,6 +54,7 @@ const CreateMolty = () => {
   });
   const [hasSavedKey, setHasSavedKey] = useState(false);
   const [loadingKey, setLoadingKey] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   // Check for saved API key on mount
   useEffect(() => {
@@ -255,11 +263,18 @@ const CreateMolty = () => {
       // Legacy step removed - Convex action handles both provision + create
     } catch (error) {
       console.error("Deploy error:", error);
-      toast({
-        title: "Deployment failed",
-        description: error instanceof Error ? error.message : "Could not create Molty",
-        variant: "destructive",
-      });
+      const errorMessage = error instanceof Error ? error.message : "Could not create Molty";
+      
+      // Check if it's a tier limit error - show upgrade modal instead of toast
+      if (errorMessage.includes("limit") || errorMessage.includes("Upgrade")) {
+        setShowUpgradeModal(true);
+      } else {
+        toast({
+          title: "Deployment failed",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsDeploying(false);
       setDeployStatus("");
@@ -589,6 +604,65 @@ const CreateMolty = () => {
           )}
         </div>
       </main>
+
+      {/* Upgrade Modal */}
+      <Dialog open={showUpgradeModal} onOpenChange={setShowUpgradeModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Crown className="w-5 h-5 text-coral" />
+              Upgrade to Pro
+            </DialogTitle>
+            <DialogDescription>
+              You've reached the free tier limit of 1 Molty.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="p-4 rounded-xl bg-gradient-to-br from-coral/10 to-violet/10 border border-coral/20">
+              <h4 className="font-display font-bold mb-3">Pro Benefits</h4>
+              <ul className="space-y-2 text-sm">
+                <li className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-green-500" />
+                  Up to <strong>10 Moltys</strong>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-green-500" />
+                  Access to <strong>Sonnet 4.5</strong> & <strong>Opus 4.6</strong>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-green-500" />
+                  Priority support
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-green-500" />
+                  Advanced customization options
+                </li>
+              </ul>
+            </div>
+            
+            <div className="flex gap-3">
+              <Button 
+                variant="outline" 
+                className="flex-1"
+                onClick={() => setShowUpgradeModal(false)}
+              >
+                Maybe Later
+              </Button>
+              <Button 
+                className="flex-1 shadow-warm bg-gradient-to-r from-coral to-violet"
+                onClick={() => {
+                  setShowUpgradeModal(false);
+                  navigate("/pricing");
+                }}
+              >
+                <Rocket className="w-4 h-4 mr-2" />
+                Upgrade Now
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
