@@ -83,13 +83,24 @@ const Settings = () => {
     fetchProfile();
   }, [user]);
 
-  // Load saved API key from localStorage
+  // Load saved API key from Convex
   useEffect(() => {
-    const stored = localStorage.getItem("moltyverse_claude_api_key");
-    if (stored) {
-      setSavedApiKey(stored);
-    }
-  }, []);
+    const fetchApiKey = async () => {
+      if (!user?.userId || !user?.tokenHash) return;
+      try {
+        const result = await convex.query("users:getApiKey" as any, {
+          userId: user.userId,
+          tokenHash: user.tokenHash,
+        });
+        if (result?.apiKey) {
+          setSavedApiKey(result.apiKey);
+        }
+      } catch (e) {
+        console.error("Failed to load API key:", e);
+      }
+    };
+    fetchApiKey();
+  }, [user]);
 
   const handleSaveProfile = async () => {
     // TODO: Implement users:updateProfile Convex mutation
@@ -106,20 +117,36 @@ const Settings = () => {
     }
   };
 
-  const handleSaveApiKey = () => {
-    if (!savedApiKey.trim()) return;
+  const handleSaveApiKey = async () => {
+    if (!savedApiKey.trim() || !user?.userId || !user?.tokenHash) return;
     setApiKeySaving(true);
-    // Store in localStorage (never sent to our servers)
-    localStorage.setItem("moltyverse_claude_api_key", savedApiKey.trim());
-    setApiKeySaving(false);
-    setApiKeySaved(true);
-    setTimeout(() => setApiKeySaved(false), 2000);
+    try {
+      await convex.mutation("users:saveApiKey" as any, {
+        userId: user.userId,
+        tokenHash: user.tokenHash,
+        apiKey: savedApiKey.trim(),
+      });
+      setApiKeySaved(true);
+      setTimeout(() => setApiKeySaved(false), 2000);
+    } catch (e) {
+      console.error("Failed to save API key:", e);
+    } finally {
+      setApiKeySaving(false);
+    }
   };
 
-  const handleDeleteApiKey = () => {
-    localStorage.removeItem("moltyverse_claude_api_key");
-    setSavedApiKey("");
-    setShowApiKey(false);
+  const handleDeleteApiKey = async () => {
+    if (!user?.userId || !user?.tokenHash) return;
+    try {
+      await convex.mutation("users:deleteApiKey" as any, {
+        userId: user.userId,
+        tokenHash: user.tokenHash,
+      });
+      setSavedApiKey("");
+      setShowApiKey(false);
+    } catch (e) {
+      console.error("Failed to delete API key:", e);
+    }
   };
 
   const formatDate = (timestamp: number) => {
@@ -338,7 +365,7 @@ const Settings = () => {
                   
                   <div className="mt-4 p-3 bg-muted/50 rounded-xl">
                     <p className="text-xs text-muted-foreground">
-                      🔒 Your API key is stored only in your browser's localStorage — we never send it to our servers.
+                      🔒 Your API key is stored securely in our database (encrypted at rest). Only you can access it.
                       Get your key from <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer" className="text-coral hover:underline">console.anthropic.com</a>
                     </p>
                   </div>

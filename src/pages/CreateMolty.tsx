@@ -46,21 +46,67 @@ const CreateMolty = () => {
     apiKey: ""
   });
   const [hasSavedKey, setHasSavedKey] = useState(false);
+  const [loadingKey, setLoadingKey] = useState(false);
 
   // Check for saved API key on mount
   useEffect(() => {
-    const savedKey = localStorage.getItem("moltyverse_claude_api_key");
-    setHasSavedKey(!!savedKey);
-  }, []);
+    const checkSavedKey = async () => {
+      if (!user?.userId) return;
+      try {
+        const response = await fetch(`${CONVEX_URL}/api/query`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            path: "users:hasApiKey",
+            args: { userId: user.userId }
+          }),
+        });
+        const data = await response.json();
+        if (data.status === "success" && data.value?.hasKey) {
+          setHasSavedKey(true);
+        }
+      } catch (e) {
+        console.error("Failed to check saved key:", e);
+      }
+    };
+    checkSavedKey();
+  }, [user?.userId]);
 
-  const useSavedKey = () => {
-    const savedKey = localStorage.getItem("moltyverse_claude_api_key");
-    if (savedKey) {
-      setFormData({ ...formData, apiKey: savedKey });
-      toast({
-        title: "API key loaded",
-        description: "Using your saved Claude API key",
+  const useSavedKey = async () => {
+    if (!user?.userId || !user?.tokenHash) return;
+    setLoadingKey(true);
+    try {
+      const response = await fetch(`${CONVEX_URL}/api/query`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          path: "users:getApiKey",
+          args: { userId: user.userId, tokenHash: user.tokenHash }
+        }),
       });
+      const data = await response.json();
+      if (data.status === "success" && data.value?.apiKey) {
+        setFormData({ ...formData, apiKey: data.value.apiKey });
+        toast({
+          title: "API key loaded",
+          description: "Using your saved Claude API key",
+        });
+      } else {
+        toast({
+          title: "Failed to load key",
+          description: "Could not retrieve your saved API key",
+          variant: "destructive",
+        });
+      }
+    } catch (e) {
+      console.error("Failed to load saved key:", e);
+      toast({
+        title: "Error",
+        description: "Failed to load saved API key",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingKey(false);
     }
   };
 
@@ -394,10 +440,15 @@ const CreateMolty = () => {
                         variant="outline"
                         size="sm"
                         onClick={useSavedKey}
+                        disabled={loadingKey}
                         className="text-coral border-coral hover:bg-coral/10"
                       >
-                        <Key className="w-3 h-3 mr-1" />
-                        Use Saved Key
+                        {loadingKey ? (
+                          <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                        ) : (
+                          <Key className="w-3 h-3 mr-1" />
+                        )}
+                        {loadingKey ? "Loading..." : "Use Saved Key"}
                       </Button>
                     )}
                   </div>
