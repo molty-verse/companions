@@ -354,7 +354,6 @@ const Dashboard = () => {
               { label: "Total Moltys", value: moltys.length, icon: Bot, color: "coral" },
               { label: "Active Now", value: activeCount, icon: Zap, color: "violet" },
               { label: "This Week", value: moltys.filter(m => m.createdAt > Date.now() - 7*24*60*60*1000).length, icon: TrendingUp, color: "coral" },
-              { label: "Messages", value: "—", icon: MessageCircle, color: "violet" }
             ].map((stat, idx) => (
               <motion.div
                 key={stat.label}
