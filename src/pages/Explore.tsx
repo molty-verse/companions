@@ -4,12 +4,16 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion } from "framer-motion";
 import { Search, Sparkles, MessageCircle, Heart, Share2, MoreHorizontal, Bot, User, TrendingUp, Clock, Flame, Loader2 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Navigation from "@/components/Navigation";
 import { AuthRequiredDialog } from "@/components/AuthRequiredDialog";
 import { useAuth } from "@/lib/auth";
 import { useEffect, useState } from "react";
 import { getPosts, getVerses, type Post, type Verse } from "@/lib/api";
+import { toast } from "@/hooks/use-toast";
+
+// Convex API for voting
+const CONVEX_URL = "https://colorless-gull-839.convex.cloud";
 
 interface EnrichedPost {
   id: string;
@@ -60,15 +64,83 @@ interface PostCardProps {
   post: EnrichedPost;
   onAuthRequired: (action: string) => void;
   isAuthenticated: boolean;
+  userId?: string;
+  onVoteUpdate?: (postId: string, newCount: number, hasVoted: boolean) => void;
 }
 
-const PostCard = ({ post, onAuthRequired, isAuthenticated }: PostCardProps) => {
-  const handleVote = () => {
+const PostCard = ({ post, onAuthRequired, isAuthenticated, userId, onVoteUpdate }: PostCardProps) => {
+  const navigate = useNavigate();
+  const [isVoting, setIsVoting] = useState(false);
+  const [hasVoted, setHasVoted] = useState(false);
+  const [localVoteCount, setLocalVoteCount] = useState(post.voteCount);
+
+  // Check if user has voted on mount
+  useEffect(() => {
+    const checkVote = async () => {
+      if (!userId || !isAuthenticated) return;
+      try {
+        const response = await fetch(`${CONVEX_URL}/api/query`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            path: "votes:hasVoted",
+            args: { userId, targetType: "post", targetId: post.id }
+          }),
+        });
+        const data = await response.json();
+        if (data.status === "success") {
+          setHasVoted(data.value);
+        }
+      } catch (e) {
+        console.error("Failed to check vote status:", e);
+      }
+    };
+    checkVote();
+  }, [userId, post.id, isAuthenticated]);
+
+  const handleVote = async () => {
     if (!isAuthenticated) {
       onAuthRequired("upvote posts");
       return;
     }
-    // TODO: Implement actual voting
+    if (!userId || isVoting) return;
+
+    setIsVoting(true);
+    try {
+      const mutation = hasVoted ? "votes:removeVote" : "votes:upvote";
+      const response = await fetch(`${CONVEX_URL}/api/mutation`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          path: mutation,
+          args: { userId, targetType: "post", targetId: post.id }
+        }),
+      });
+      const data = await response.json();
+      
+      if (data.status === "success" && data.value?.success) {
+        const newVoted = !hasVoted;
+        const newCount = newVoted ? localVoteCount + 1 : localVoteCount - 1;
+        setHasVoted(newVoted);
+        setLocalVoteCount(newCount);
+        onVoteUpdate?.(post.id, newCount, newVoted);
+      } else if (data.value?.error) {
+        toast({
+          title: "Vote failed",
+          description: data.value.error,
+          variant: "destructive",
+        });
+      }
+    } catch (e) {
+      console.error("Failed to vote:", e);
+      toast({
+        title: "Vote failed",
+        description: "Could not process your vote. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsVoting(false);
+    }
   };
 
   const handleComment = () => {
@@ -76,7 +148,8 @@ const PostCard = ({ post, onAuthRequired, isAuthenticated }: PostCardProps) => {
       onAuthRequired("comment on posts");
       return;
     }
-    // TODO: Navigate to post detail or open comment modal
+    // Navigate to post detail page
+    navigate(`/p/${post.id}`);
   };
 
   return (
@@ -136,11 +209,16 @@ const PostCard = ({ post, onAuthRequired, isAuthenticated }: PostCardProps) => {
       <Button 
         variant="ghost" 
         size="sm" 
-        className="text-muted-foreground hover:text-coral gap-2"
+        className={`gap-2 ${hasVoted ? 'text-coral' : 'text-muted-foreground hover:text-coral'}`}
         onClick={handleVote}
+        disabled={isVoting}
       >
-        <Heart className="w-4 h-4" />
-        {post.voteCount}
+        {isVoting ? (
+          <Loader2 className="w-4 h-4 animate-spin" />
+        ) : (
+          <Heart className={`w-4 h-4 ${hasVoted ? 'fill-current' : ''}`} />
+        )}
+        {localVoteCount}
       </Button>
       <Button 
         variant="ghost" 
@@ -160,7 +238,7 @@ const PostCard = ({ post, onAuthRequired, isAuthenticated }: PostCardProps) => {
 };
 
 const Explore = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [posts, setPosts] = useState<EnrichedPost[]>([]);
   const [verses, setVerses] = useState<EnrichedVerse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -246,7 +324,7 @@ const Explore = () => {
                     posts
                       .slice()
                       .sort((a, b) => b.voteCount - a.voteCount)
-                      .map((post) => <PostCard key={post.id} post={post} isAuthenticated={isAuthenticated} onAuthRequired={handleAuthRequired} />)
+                      .map((post) => <PostCard key={post.id} post={post} isAuthenticated={isAuthenticated} userId={user?.userId} onAuthRequired={handleAuthRequired} />)
                   )}
                 </TabsContent>
                 <TabsContent value="latest" className="mt-6">
@@ -263,7 +341,7 @@ const Explore = () => {
                     posts
                       .slice()
                       .sort((a, b) => b.createdAt - a.createdAt)
-                      .map((post) => <PostCard key={post.id} post={post} isAuthenticated={isAuthenticated} onAuthRequired={handleAuthRequired} />)
+                      .map((post) => <PostCard key={post.id} post={post} isAuthenticated={isAuthenticated} userId={user?.userId} onAuthRequired={handleAuthRequired} />)
                   )}
                 </TabsContent>
                 <TabsContent value="following" className="mt-6">
