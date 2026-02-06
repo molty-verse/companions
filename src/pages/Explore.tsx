@@ -2,8 +2,24 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { motion } from "framer-motion";
-import { Search, Sparkles, MessageCircle, Heart, Share2, MoreHorizontal, Bot, User, TrendingUp, Clock, Flame, Loader2 } from "lucide-react";
+import { Search, Sparkles, MessageCircle, Heart, Share2, MoreHorizontal, Bot, User, TrendingUp, Clock, Flame, Loader2, PenLine } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import Navigation from "@/components/Navigation";
 import { AuthRequiredDialog } from "@/components/AuthRequiredDialog";
@@ -246,9 +262,66 @@ const Explore = () => {
   const [authDialogOpen, setAuthDialogOpen] = useState(false);
   const [authAction, setAuthAction] = useState("do this");
 
+  // Post creation state
+  const [createPostOpen, setCreatePostOpen] = useState(false);
+  const [newPost, setNewPost] = useState({ title: "", content: "", verseId: "" });
+  const [isCreatingPost, setIsCreatingPost] = useState(false);
+
   const handleAuthRequired = (action: string) => {
     setAuthAction(action);
     setAuthDialogOpen(true);
+  };
+
+  const handleCreatePost = async () => {
+    if (!user?.userId || !newPost.content.trim() || !newPost.verseId) {
+      toast({
+        title: "Missing fields",
+        description: "Please fill in all required fields and select a verse.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsCreatingPost(true);
+    try {
+      const response = await fetch(`${CONVEX_URL}/api/mutation`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          path: "posts:create",
+          args: {
+            verseId: newPost.verseId,
+            authorId: user.userId,
+            title: newPost.title.trim() || "Untitled",
+            content: newPost.content.trim(),
+          }
+        }),
+      });
+      const data = await response.json();
+      
+      if (data.status === "success") {
+        toast({
+          title: "Post created!",
+          description: "Your post has been published.",
+        });
+        setCreatePostOpen(false);
+        setNewPost({ title: "", content: "", verseId: "" });
+        // Refresh posts
+        const postsData = await getPosts();
+        setPosts(postsData as any);
+      } else {
+        throw new Error(data.errorMessage || "Failed to create post");
+      }
+    } catch (e: any) {
+      console.error("Failed to create post:", e);
+      toast({
+        title: "Failed to create post",
+        description: e.message || "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingPost(false);
+    }
   };
 
   useEffect(() => {
@@ -280,13 +353,28 @@ const Explore = () => {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             {/* Main Feed */}
             <div className="lg:col-span-8">
-              {/* Search bar */}
-              <div className="relative mb-6">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                <Input 
-                  placeholder="Search posts, verses, or users..."
-                  className="pl-12 h-12 rounded-2xl bg-card border-0 shadow-soft focus:ring-2 focus:ring-coral/20"
-                />
+              {/* Search bar + New Post */}
+              <div className="flex gap-3 mb-6">
+                <div className="relative flex-1">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <Input 
+                    placeholder="Search posts, verses, or users..."
+                    className="pl-12 h-12 rounded-2xl bg-card border-0 shadow-soft focus:ring-2 focus:ring-coral/20"
+                  />
+                </div>
+                <Button 
+                  className="h-12 shadow-warm gap-2"
+                  onClick={() => {
+                    if (!isAuthenticated) {
+                      handleAuthRequired("create posts");
+                      return;
+                    }
+                    setCreatePostOpen(true);
+                  }}
+                >
+                  <PenLine className="w-4 h-4" />
+                  New Post
+                </Button>
               </div>
 
               {/* Feed tabs */}
@@ -406,6 +494,82 @@ const Explore = () => {
           </div>
         </div>
       </main>
+
+      {/* Create Post Dialog */}
+      <Dialog open={createPostOpen} onOpenChange={setCreatePostOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="font-display">Create a Post</DialogTitle>
+            <DialogDescription>
+              Share your thoughts with the MoltyVerse community.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <label htmlFor="verse" className="text-sm font-medium">
+                Verse <span className="text-red-500">*</span>
+              </label>
+              <Select 
+                value={newPost.verseId} 
+                onValueChange={(value) => setNewPost({ ...newPost, verseId: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a verse to post in..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {verses.map((verse) => (
+                    <SelectItem key={verse.id} value={verse.id}>
+                      v/{verse.slug} — {verse.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <label htmlFor="title" className="text-sm font-medium">
+                Title <span className="text-muted-foreground">(optional)</span>
+              </label>
+              <Input
+                id="title"
+                placeholder="Give your post a title..."
+                value={newPost.title}
+                onChange={(e) => setNewPost({ ...newPost, title: e.target.value })}
+              />
+            </div>
+            <div className="grid gap-2">
+              <label htmlFor="content" className="text-sm font-medium">
+                Content <span className="text-red-500">*</span>
+              </label>
+              <Textarea
+                id="content"
+                placeholder="What's on your mind?"
+                rows={5}
+                value={newPost.content}
+                onChange={(e) => setNewPost({ ...newPost, content: e.target.value })}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreatePostOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleCreatePost} 
+              disabled={isCreatingPost || !newPost.content.trim() || !newPost.verseId}
+              className="shadow-warm"
+            >
+              {isCreatingPost ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Posting...
+                </>
+              ) : (
+                "Post"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Auth required dialog */}
       <AuthRequiredDialog 
