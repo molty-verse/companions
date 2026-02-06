@@ -43,12 +43,17 @@ const DISCORD_BOT_CLIENT_ID = "1468567298213150949"; // Moltyverse-000-dev for n
 const getDiscordInviteUrl = (moltyId: string) => 
   `https://discord.com/api/oauth2/authorize?client_id=${DISCORD_BOT_CLIENT_ID}&permissions=274877991936&scope=bot&state=${moltyId}`;
 
+// Provisioner API for stop/start
+const PROVISIONER_URL = "https://moltyverse-provisioner-production.up.railway.app";
+
 interface MoltyCardProps {
   molty: MoltyData;
   onDelete: (molty: MoltyData) => void;
+  onPowerToggle: (molty: MoltyData) => Promise<void>;
+  isPowerLoading?: boolean;
 }
 
-const MoltyCard = ({ molty, onDelete }: MoltyCardProps) => {
+const MoltyCard = ({ molty, onDelete, onPowerToggle, isPowerLoading }: MoltyCardProps) => {
   const statusColors = {
     running: "bg-green-500",
     stopped: "bg-gray-400",
@@ -159,8 +164,19 @@ const MoltyCard = ({ molty, onDelete }: MoltyCardProps) => {
             <Settings className="w-4 h-4" />
           </Link>
         </Button>
-        <Button variant="outline" size="icon" className="rounded-xl">
-          <Power className="w-4 h-4" />
+        <Button 
+          variant="outline" 
+          size="icon" 
+          className={`rounded-xl ${molty.status === "running" ? "text-green-600 hover:text-red-600" : "text-gray-400 hover:text-green-600"}`}
+          onClick={() => onPowerToggle(molty)}
+          disabled={isPowerLoading || molty.status === "provisioning"}
+          title={molty.status === "running" ? "Stop Molty" : "Start Molty"}
+        >
+          {isPowerLoading ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Power className="w-4 h-4" />
+          )}
         </Button>
       </div>
     </motion.div>
@@ -181,6 +197,9 @@ const Dashboard = () => {
   const [moltyToDelete, setMoltyToDelete] = useState<MoltyData | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Power toggle state
+  const [powerLoadingId, setPowerLoadingId] = useState<string | null>(null);
 
   // Handle OAuth one-time token verification (cross-domain auth)
   useEffect(() => {
@@ -310,6 +329,60 @@ const Dashboard = () => {
     }
   };
 
+  // Power toggle handler - stop/start Molty container
+  const handlePowerToggle = async (molty: MoltyData) => {
+    if (!molty.sandboxId) {
+      toast({
+        title: "Cannot toggle power",
+        description: "Molty has no sandbox ID",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setPowerLoadingId(molty.id);
+    const action = molty.status === "running" ? "stop" : "start";
+    
+    try {
+      const response = await fetch(`${PROVISIONER_URL}/api/${action}/${molty.sandboxId}`, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          // TODO: Add proper auth token when Wolf adds the endpoint
+        },
+        body: JSON.stringify({ userId: user?.userId }),
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error || `Failed to ${action} Molty`);
+      }
+
+      const data = await response.json();
+      
+      // Update local state with new status
+      setMoltys(prev => prev.map(m => 
+        m.id === molty.id 
+          ? { ...m, status: action === "stop" ? "stopped" : "running" }
+          : m
+      ));
+
+      toast({
+        title: action === "stop" ? "Molty stopped" : "Molty started",
+        description: `${molty.name} is now ${action === "stop" ? "offline" : "online"}`,
+      });
+    } catch (e: any) {
+      console.error(`Failed to ${action} molty:`, e);
+      toast({
+        title: `Failed to ${action}`,
+        description: e.message || `Could not ${action} the Molty. Please try again.`,
+        variant: "destructive",
+      });
+    } finally {
+      setPowerLoadingId(null);
+    }
+  };
+
   if (authLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -412,7 +485,12 @@ const Dashboard = () => {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: idx * 0.1 }}
                   >
-                    <MoltyCard molty={molty} onDelete={handleDeleteClick} />
+                    <MoltyCard 
+                      molty={molty} 
+                      onDelete={handleDeleteClick}
+                      onPowerToggle={handlePowerToggle}
+                      isPowerLoading={powerLoadingId === molty.id}
+                    />
                   </motion.div>
                 ))}
                 

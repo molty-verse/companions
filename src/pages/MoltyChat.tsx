@@ -3,10 +3,11 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { motion } from "framer-motion";
-import { ArrowLeft, Send, Bot, Settings, Share2, Heart, Loader2, Sparkles, Copy, Check, AlertCircle } from "lucide-react";
+import { ArrowLeft, Send, Bot, Settings, Share2, Heart, Loader2, Sparkles, Copy, Check, AlertCircle, Power } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { useState, useRef, useEffect } from "react";
 import { useAuth, useRequireAuth } from "@/lib/auth";
+import { toast } from "@/hooks/use-toast";
 
 interface Message {
   id: string;
@@ -39,6 +40,7 @@ const MoltyChat = () => {
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [isStarting, setIsStarting] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Fetch molty data
@@ -151,6 +153,42 @@ const MoltyChat = () => {
     navigator.clipboard.writeText(content);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  // Start Molty from chat page
+  const handleStart = async () => {
+    if (!molty?.sandboxId) return;
+    
+    setIsStarting(true);
+    try {
+      const response = await fetch(`${PROVISIONER_URL}/api/start/${molty.sandboxId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user?.userId }),
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error || "Failed to start Molty");
+      }
+
+      // Update local state
+      setMolty(prev => prev ? { ...prev, status: "running" } : null);
+      
+      toast({
+        title: "Molty started",
+        description: `${molty.name} is now online`,
+      });
+    } catch (e: any) {
+      console.error("Failed to start molty:", e);
+      toast({
+        title: "Failed to start",
+        description: e.message || "Could not start the Molty. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsStarting(false);
+    }
   };
 
   if (authLoading || isLoading) {
@@ -302,9 +340,23 @@ const MoltyChat = () => {
       <div className="sticky bottom-0 glass border-t border-border p-4">
         <div className="container mx-auto max-w-3xl">
           {molty.status !== "running" ? (
-            <div className="text-center py-2 text-muted-foreground">
-              <AlertCircle className="w-5 h-5 inline mr-2" />
-              This Molty is currently offline
+            <div className="text-center py-4">
+              <div className="text-muted-foreground mb-3">
+                <AlertCircle className="w-5 h-5 inline mr-2" />
+                This Molty is currently offline
+              </div>
+              <Button 
+                onClick={handleStart}
+                disabled={isStarting}
+                className="shadow-warm"
+              >
+                {isStarting ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Power className="w-4 h-4 mr-2" />
+                )}
+                {isStarting ? "Starting..." : "Start Molty"}
+              </Button>
             </div>
           ) : (
             <>
