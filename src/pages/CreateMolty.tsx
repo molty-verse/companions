@@ -4,9 +4,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { motion } from "framer-motion";
-import { ArrowLeft, ArrowRight, Sparkles, Bot, Palette, Zap, Check, Loader2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Sparkles, Bot, Palette, Zap, Check, Loader2, Key } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Navigation from "@/components/Navigation";
 import { useAuth, useRequireAuth } from "@/lib/auth";
 import { toast } from "@/hooks/use-toast";
@@ -45,6 +45,24 @@ const CreateMolty = () => {
     description: "",
     apiKey: ""
   });
+  const [hasSavedKey, setHasSavedKey] = useState(false);
+
+  // Check for saved API key on mount
+  useEffect(() => {
+    const savedKey = localStorage.getItem("moltyverse_claude_api_key");
+    setHasSavedKey(!!savedKey);
+  }, []);
+
+  const useSavedKey = () => {
+    const savedKey = localStorage.getItem("moltyverse_claude_api_key");
+    if (savedKey) {
+      setFormData({ ...formData, apiKey: savedKey });
+      toast({
+        title: "API key loaded",
+        description: "Using your saved Claude API key",
+      });
+    }
+  };
 
   const handleDeploy = async () => {
     if (!user) {
@@ -368,7 +386,21 @@ const CreateMolty = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="apiKey">Claude API Key</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="apiKey">Claude API Key</Label>
+                    {hasSavedKey && !formData.apiKey && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={useSavedKey}
+                        className="text-coral border-coral hover:bg-coral/10"
+                      >
+                        <Key className="w-3 h-3 mr-1" />
+                        Use Saved Key
+                      </Button>
+                    )}
+                  </div>
                   <Input
                     id="apiKey"
                     type="password"
@@ -382,6 +414,11 @@ const CreateMolty = () => {
                     <a href="https://console.anthropic.com" target="_blank" rel="noopener noreferrer" className="text-coral hover:underline">
                       console.anthropic.com
                     </a>
+                    {!hasSavedKey && (
+                      <span className="ml-1">
+                        · <Link to="/settings#api" className="text-coral hover:underline">Save a key</Link> for quick reuse
+                      </span>
+                    )}
                   </p>
                 </div>
 

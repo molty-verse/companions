@@ -4,7 +4,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion } from "framer-motion";
-import { User, Bell, CreditCard, Plug, Loader2, Check } from "lucide-react";
+import { User, Bell, CreditCard, Plug, Loader2, Check, Key, Eye, EyeOff, Save, Trash2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import Navigation from "@/components/Navigation";
@@ -23,7 +23,7 @@ interface UserProfile {
   createdAt: number;
 }
 
-const VALID_TABS = ["profile", "notifications", "billing", "integrations"];
+const VALID_TABS = ["profile", "api", "notifications", "billing", "integrations"];
 
 const Settings = () => {
   const { user, isAuthenticated } = useAuth();
@@ -46,6 +46,12 @@ const Settings = () => {
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [bio, setBio] = useState("");
+  
+  // API Key state (stored in localStorage for privacy)
+  const [savedApiKey, setSavedApiKey] = useState("");
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [apiKeySaving, setApiKeySaving] = useState(false);
+  const [apiKeySaved, setApiKeySaved] = useState(false);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -77,6 +83,14 @@ const Settings = () => {
     fetchProfile();
   }, [user]);
 
+  // Load saved API key from localStorage
+  useEffect(() => {
+    const stored = localStorage.getItem("moltyverse_claude_api_key");
+    if (stored) {
+      setSavedApiKey(stored);
+    }
+  }, []);
+
   const handleSaveProfile = async () => {
     // TODO: Implement users:updateProfile Convex mutation
     // This currently simulates a save but doesn't persist to backend
@@ -90,6 +104,22 @@ const Settings = () => {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSaveApiKey = () => {
+    if (!savedApiKey.trim()) return;
+    setApiKeySaving(true);
+    // Store in localStorage (never sent to our servers)
+    localStorage.setItem("moltyverse_claude_api_key", savedApiKey.trim());
+    setApiKeySaving(false);
+    setApiKeySaved(true);
+    setTimeout(() => setApiKeySaved(false), 2000);
+  };
+
+  const handleDeleteApiKey = () => {
+    localStorage.removeItem("moltyverse_claude_api_key");
+    setSavedApiKey("");
+    setShowApiKey(false);
   };
 
   const formatDate = (timestamp: number) => {
@@ -136,6 +166,10 @@ const Settings = () => {
               <TabsTrigger value="profile" className="rounded-lg data-[state=active]:bg-background">
                 <User className="w-4 h-4 mr-2" />
                 Profile
+              </TabsTrigger>
+              <TabsTrigger value="api" className="rounded-lg data-[state=active]:bg-background">
+                <Key className="w-4 h-4 mr-2" />
+                API Keys
               </TabsTrigger>
               <TabsTrigger value="notifications" className="rounded-lg data-[state=active]:bg-background">
                 <Bell className="w-4 h-4 mr-2" />
@@ -233,6 +267,81 @@ const Settings = () => {
                     ) : null}
                     {saved ? "Saved!" : "Save Changes"}
                   </Button>
+                </div>
+              </motion.div>
+            </TabsContent>
+
+            {/* API Keys Tab */}
+            <TabsContent value="api">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-6"
+              >
+                <div className="card-living">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-xl bg-coral/10 flex items-center justify-center">
+                      <Key className="w-5 h-5 text-coral" />
+                    </div>
+                    <div>
+                      <h3 className="font-display font-bold">Claude API Key</h3>
+                      <p className="text-sm text-muted-foreground">Save your API key to reuse when creating Moltys</p>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3">
+                      <Input
+                        type={showApiKey ? "text" : "password"}
+                        value={savedApiKey}
+                        onChange={(e) => setSavedApiKey(e.target.value)}
+                        placeholder="sk-ant-api03-..."
+                        className="h-12 rounded-xl bg-muted/50 border-0 font-mono text-sm flex-1"
+                      />
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={() => setShowApiKey(!showApiKey)}
+                        className="shrink-0"
+                      >
+                        {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </Button>
+                    </div>
+
+                    <div className="flex gap-3">
+                      <Button 
+                        onClick={handleSaveApiKey}
+                        disabled={!savedApiKey.trim() || apiKeySaving}
+                        className="shadow-warm"
+                      >
+                        {apiKeySaving ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : apiKeySaved ? (
+                          <Check className="w-4 h-4 mr-2" />
+                        ) : (
+                          <Save className="w-4 h-4 mr-2" />
+                        )}
+                        {apiKeySaved ? "Saved!" : "Save Key"}
+                      </Button>
+                      {savedApiKey && (
+                        <Button 
+                          variant="outline" 
+                          onClick={handleDeleteApiKey}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Delete
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="mt-4 p-3 bg-muted/50 rounded-xl">
+                    <p className="text-xs text-muted-foreground">
+                      🔒 Your API key is stored only in your browser's localStorage — we never send it to our servers.
+                      Get your key from <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer" className="text-coral hover:underline">console.anthropic.com</a>
+                    </p>
+                  </div>
                 </div>
               </motion.div>
             </TabsContent>
