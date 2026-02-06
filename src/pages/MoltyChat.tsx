@@ -7,8 +7,6 @@ import { ArrowLeft, Send, Bot, Settings, Share2, Heart, Loader2, Sparkles, Copy,
 import { Link, useParams } from "react-router-dom";
 import { useState, useRef, useEffect } from "react";
 import { useAuth, useRequireAuth } from "@/lib/auth";
-import { convex } from "@/lib/convex";
-import { getAccessToken } from "@/lib/api";
 
 interface Message {
   id: string;
@@ -45,14 +43,25 @@ const MoltyChat = () => {
       if (!moltyId) return;
       
       try {
-        const result = await convex.query("moltys:getById" as any, { moltyId });
-        if (result) {
-          setMolty(result);
+        // Use direct API call to Convex
+        const response = await fetch("https://colorless-gull-839.convex.cloud/api/query", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            path: "moltys:getById",
+            args: { moltyId }
+          }),
+        });
+        
+        const data = await response.json();
+        
+        if (data.status === "success" && data.value) {
+          setMolty(data.value);
           // Add welcome message
           setMessages([{
             id: "welcome",
             role: "assistant",
-            content: `Hey! I'm ${result.name}. How can I help you today? 💬`,
+            content: `Hey! I'm ${data.value.name}. How can I help you today? 💬`,
             timestamp: "Just now"
           }]);
         } else {

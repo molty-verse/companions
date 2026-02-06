@@ -6,7 +6,6 @@ import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import Navigation from "@/components/Navigation";
 import { useAuth, useRequireAuth } from "@/lib/auth";
-import { convex } from "@/lib/convex";
 
 // Molty type from Convex
 interface MoltyData {
@@ -103,10 +102,25 @@ const Dashboard = () => {
     setError(null);
     
     try {
-      const result = await convex.query("moltys:getByOwner" as any, { 
-        ownerId: user.userId 
+      // Use direct API call to Convex
+      const response = await fetch("https://colorless-gull-839.convex.cloud/api/query", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          path: "moltys:getByOwner",
+          args: { ownerId: user.userId }
+        }),
       });
-      setMoltys(result || []);
+      
+      const data = await response.json();
+      
+      if (data.status === "success") {
+        setMoltys(data.value || []);
+      } else {
+        console.error("Convex error:", data.errorMessage);
+        setError("Failed to load your Moltys");
+        setMoltys([]);
+      }
     } catch (e) {
       console.error("Failed to fetch moltys:", e);
       setError("Failed to load your Moltys");
