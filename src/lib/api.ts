@@ -134,24 +134,39 @@ async function fetchAPI<T>(
 // AUTH API (HTTP routes)
 // ============================================
 
+// OAuth handles registration now - users sign up via Discord/Google
+// This function is kept for backward compatibility but shouldn't be called
 export async function register(
   username: string,
   email: string,
   password: string
 ): Promise<{ user: User; accessToken: string; refreshToken: string }> {
-  const result = await fetchAPI<AuthResponse>("/auth/register", {
-    method: "POST",
-    body: JSON.stringify({ username, email, password }),
-  });
+  throw new Error("Registration via email/password is disabled. Please use OAuth (Discord/Google).");
+}
+
+// Handle OAuth callback - call this when redirected back from OAuth provider
+export async function handleOAuthCallback(params: URLSearchParams): Promise<User | null> {
+  const accessToken = params.get("access_token") || params.get("token");
+  const refreshToken = params.get("refresh_token");
   
-  const user: User = {
-    userId: result.userId,
-    username: result.username,
-    email: result.email,
-  };
+  if (!accessToken) {
+    return null;
+  }
   
-  setTokens({ accessToken: result.accessToken, refreshToken: result.refreshToken, user });
-  return { user, accessToken: result.accessToken, refreshToken: result.refreshToken };
+  // Store the tokens
+  localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
+  if (refreshToken) {
+    localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+  }
+  setConvexAuth(accessToken);
+  
+  // Verify and get user info
+  const user = await verifyToken();
+  if (user) {
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+  }
+  
+  return user;
 }
 
 export async function login(

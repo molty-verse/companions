@@ -1,14 +1,14 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   User,
   getStoredUser,
   getAccessToken,
   verifyToken,
   login as apiLogin,
-  register as apiRegister,
   logout as apiLogout,
   clearTokens,
+  handleOAuthCallback,
 } from "./api";
 
 interface AuthContextType {
@@ -16,7 +16,6 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (username: string, email: string, password: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -25,10 +24,24 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const location = useLocation();
 
-  // Check for existing session on mount
+  // Check for OAuth callback or existing session on mount
   useEffect(() => {
     async function checkAuth() {
+      // Check for OAuth callback params in URL
+      const params = new URLSearchParams(location.search);
+      if (params.has("access_token") || params.has("token")) {
+        const oauthUser = await handleOAuthCallback(params);
+        if (oauthUser) {
+          setUser(oauthUser);
+          // Clean up URL
+          window.history.replaceState({}, "", location.pathname);
+        }
+        setIsLoading(false);
+        return;
+      }
+
       const token = getAccessToken();
       if (!token) {
         setIsLoading(false);
@@ -60,15 +73,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     checkAuth();
-  }, []);
+  }, [location]);
 
   const login = async (email: string, password: string) => {
     const result = await apiLogin(email, password);
-    setUser(result.user);
-  };
-
-  const register = async (username: string, email: string, password: string) => {
-    const result = await apiRegister(username, email, password);
     setUser(result.user);
   };
 
@@ -84,7 +92,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         isAuthenticated: !!user,
         login,
-        register,
         logout,
       }}
     >
