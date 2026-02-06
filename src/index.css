@@ -1,4 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+/* Using Plus Jakarta Sans as Satoshi alternative (more reliable CDN) */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -10,11 +12,6 @@
 */
 
 @layer base {
-  @font-face {
-    font-family: 'Satoshi';
-    src: url('https://api.fontshare.com/v2/css?f[]=satoshi@700,900,500,400&display=swap');
-    font-display: swap;
-  }
 
   :root {
     /* Core Colors */

@@ -16,7 +16,7 @@ interface Message {
 }
 
 interface MoltyData {
-  _id: string;
+  id: string;
   name: string;
   status: string;
   gatewayUrl: string;

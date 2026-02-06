@@ -7,26 +7,26 @@ import { useEffect, useState } from "react";
 import Navigation from "@/components/Navigation";
 import { useAuth, useRequireAuth } from "@/lib/auth";
 
-// Molty type from Convex
+// Molty type from Convex (backend returns 'id' not '_id')
 interface MoltyData {
-  _id: string;
+  id: string;
   name: string;
-  status: "provisioning" | "online" | "offline" | "error";
+  status: "provisioning" | "running" | "stopped" | "error";
   gatewayUrl?: string;
   createdAt: number;
 }
 
 const MoltyCard = ({ molty }: { molty: MoltyData }) => {
   const statusColors = {
-    online: "bg-green-500",
-    offline: "bg-gray-400",
+    running: "bg-green-500",
+    stopped: "bg-gray-400",
     provisioning: "bg-yellow-500 animate-pulse",
     error: "bg-red-500",
   };
 
   const statusLabels = {
-    online: "Online",
-    offline: "Offline", 
+    running: "Online",
+    stopped: "Offline", 
     provisioning: "Starting...",
     error: "Error",
   };
@@ -71,8 +71,8 @@ const MoltyCard = ({ molty }: { molty: MoltyData }) => {
 
       {/* Actions */}
       <div className="flex gap-2">
-        <Button asChild variant="default" className="flex-1 shadow-warm" disabled={molty.status !== "online"}>
-          <Link to={`/m/${molty._id}`}>
+        <Button asChild variant="default" className="flex-1 shadow-warm" disabled={molty.status !== "running"}>
+          <Link to={`/m/${molty.id}`}>
             <MessageCircle className="w-4 h-4 mr-2" />
             Chat
           </Link>
@@ -147,7 +147,7 @@ const Dashboard = () => {
     );
   }
 
-  const activeCount = moltys.filter(m => m.status === "online").length;
+  const activeCount = moltys.filter(m => m.status === "running").length;
 
   return (
     <div className="min-h-screen bg-background font-body grain">
@@ -237,7 +237,7 @@ const Dashboard = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {moltys.map((molty, idx) => (
                   <motion.div
-                    key={molty._id}
+                    key={molty.id}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: idx * 0.1 }}
