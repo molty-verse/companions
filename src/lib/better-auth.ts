@@ -135,6 +135,14 @@ export const verifyOneTimeToken = async (token: string): Promise<{
   const syncData = await syncResponse.json();
   console.log("[OTT] Sync response:", syncData);
   
+  // Store JWT tokens if provided (for authenticated API calls)
+  if (syncData.accessToken) {
+    localStorage.setItem("moltyverse_access_token", syncData.accessToken);
+  }
+  if (syncData.refreshToken) {
+    localStorage.setItem("moltyverse_refresh_token", syncData.refreshToken);
+  }
+  
   // Return the synced user data (with proper MoltyVerse userId)
   return {
     userId: syncData.userId,
