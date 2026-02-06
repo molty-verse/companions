@@ -26,18 +26,24 @@ export const {
 } = authClient;
 
 // Social sign-in helpers
-export const signInWithDiscord = () => {
-  return authClient.signIn.social({
+export const signInWithDiscord = async () => {
+  console.log("[OAuth] Starting Discord sign-in...");
+  const result = await authClient.signIn.social({
     provider: "discord",
     callbackURL: "/dashboard",
   });
+  console.log("[OAuth] Discord sign-in result:", result);
+  return result;
 };
 
-export const signInWithGoogle = () => {
-  return authClient.signIn.social({
+export const signInWithGoogle = async () => {
+  console.log("[OAuth] Starting Google sign-in...");
+  const result = await authClient.signIn.social({
     provider: "google",
     callbackURL: "/dashboard",
   });
+  console.log("[OAuth] Google sign-in result:", result);
+  return result;
 };
 
 /**

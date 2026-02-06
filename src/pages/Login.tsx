@@ -16,6 +16,10 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState<"discord" | "google" | null>(null);
+  
+  // Debug: Log when Login page mounts and current URL
+  console.log("[Login] Page mounted, URL:", window.location.href);
+  console.log("[Login] Search params:", window.location.search);
 
   const handleDiscordLogin = async () => {
     setOauthLoading("discord");

@@ -135,8 +135,13 @@ const Dashboard = () => {
 
   // Handle OAuth one-time token verification (cross-domain auth)
   useEffect(() => {
+    // Debug: Log all URL params
+    console.log("[Dashboard] URL search params:", Object.fromEntries(searchParams.entries()));
+    console.log("[Dashboard] Current URL:", window.location.href);
+    
     const ott = searchParams.get("ott");
     if (ott) {
+      console.log("[Dashboard] Found OTT token, verifying...");
       // Remove ott from URL immediately
       searchParams.delete("ott");
       setSearchParams(searchParams, { replace: true });
