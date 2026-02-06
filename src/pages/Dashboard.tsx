@@ -47,8 +47,7 @@ const DISCORD_BOT_CLIENT_ID = "1468567298213150949"; // Moltyverse-000-dev for n
 const getDiscordInviteUrl = (moltyId: string) => 
   `https://discord.com/api/oauth2/authorize?client_id=${DISCORD_BOT_CLIENT_ID}&permissions=274877991936&scope=bot&state=${moltyId}`;
 
-// Convex API for mutations/actions
-const CONVEX_URL = import.meta.env.VITE_CONVEX_URL || `${CONVEX_URL}";
+// Convex API for mutations/actions (CONVEX_URL defined above)
 
 interface MoltyCardProps {
   molty: MoltyData;
