@@ -105,13 +105,13 @@ const MoltyChat = () => {
     setIsSending(true);
 
     try {
-      // Use Provisioner relay to bypass Daytona auth
-      // Relay executes curl inside the sandbox via Daytona SDK
-      const response = await fetch(`${PROVISIONER_URL}/api/relay/${molty.sandboxId}/api/message`, {
+      // Use public chat endpoint (no service token required)
+      // Validates molty token directly via X-Molty-Token header
+      const response = await fetch(`${PROVISIONER_URL}/chat/${molty.sandboxId}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Gateway-Token": molty.authToken,
+          "X-Molty-Token": molty.authToken,
         },
         body: JSON.stringify({ message: input }),
       });
