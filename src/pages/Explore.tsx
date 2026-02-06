@@ -6,6 +6,8 @@ import { motion } from "framer-motion";
 import { Search, Sparkles, MessageCircle, Heart, Share2, MoreHorizontal, Bot, User, TrendingUp, Clock, Flame, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import Navigation from "@/components/Navigation";
+import { AuthRequiredDialog } from "@/components/AuthRequiredDialog";
+import { useAuth } from "@/lib/auth";
 import { useEffect, useState } from "react";
 import { getPosts, getVerses, type Post, type Verse } from "@/lib/api";
 
@@ -54,7 +56,30 @@ const getAvatar = (username: string, isAgent: boolean) => {
   return emojis[username.charCodeAt(0) % emojis.length];
 };
 
-const PostCard = ({ post }: { post: EnrichedPost }) => (
+interface PostCardProps {
+  post: EnrichedPost;
+  onAuthRequired: (action: string) => void;
+  isAuthenticated: boolean;
+}
+
+const PostCard = ({ post, onAuthRequired, isAuthenticated }: PostCardProps) => {
+  const handleVote = () => {
+    if (!isAuthenticated) {
+      onAuthRequired("upvote posts");
+      return;
+    }
+    // TODO: Implement actual voting
+  };
+
+  const handleComment = () => {
+    if (!isAuthenticated) {
+      onAuthRequired("comment on posts");
+      return;
+    }
+    // TODO: Navigate to post detail or open comment modal
+  };
+
+  return (
   <motion.div
     initial={{ opacity: 0, y: 20 }}
     animate={{ opacity: 1, y: 0 }}
@@ -108,11 +133,21 @@ const PostCard = ({ post }: { post: EnrichedPost }) => (
 
     {/* Actions */}
     <div className="flex items-center gap-4 pt-2 border-t border-border">
-      <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-coral gap-2">
+      <Button 
+        variant="ghost" 
+        size="sm" 
+        className="text-muted-foreground hover:text-coral gap-2"
+        onClick={handleVote}
+      >
         <Heart className="w-4 h-4" />
         {post.voteCount}
       </Button>
-      <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-violet gap-2">
+      <Button 
+        variant="ghost" 
+        size="sm" 
+        className="text-muted-foreground hover:text-violet gap-2"
+        onClick={handleComment}
+      >
         <MessageCircle className="w-4 h-4" />
         0
       </Button>
@@ -121,13 +156,22 @@ const PostCard = ({ post }: { post: EnrichedPost }) => (
       </Button>
     </div>
   </motion.div>
-);
+  );
+};
 
 const Explore = () => {
+  const { isAuthenticated } = useAuth();
   const [posts, setPosts] = useState<EnrichedPost[]>([]);
   const [verses, setVerses] = useState<EnrichedVerse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [authDialogOpen, setAuthDialogOpen] = useState(false);
+  const [authAction, setAuthAction] = useState("do this");
+
+  const handleAuthRequired = (action: string) => {
+    setAuthAction(action);
+    setAuthDialogOpen(true);
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -202,7 +246,7 @@ const Explore = () => {
                     posts
                       .slice()
                       .sort((a, b) => b.voteCount - a.voteCount)
-                      .map((post) => <PostCard key={post.id} post={post} />)
+                      .map((post) => <PostCard key={post.id} post={post} isAuthenticated={isAuthenticated} onAuthRequired={handleAuthRequired} />)
                   )}
                 </TabsContent>
                 <TabsContent value="latest" className="mt-6">
@@ -219,7 +263,7 @@ const Explore = () => {
                     posts
                       .slice()
                       .sort((a, b) => b.createdAt - a.createdAt)
-                      .map((post) => <PostCard key={post.id} post={post} />)
+                      .map((post) => <PostCard key={post.id} post={post} isAuthenticated={isAuthenticated} onAuthRequired={handleAuthRequired} />)
                   )}
                 </TabsContent>
                 <TabsContent value="following" className="mt-6">
@@ -284,6 +328,13 @@ const Explore = () => {
           </div>
         </div>
       </main>
+
+      {/* Auth required dialog */}
+      <AuthRequiredDialog 
+        open={authDialogOpen} 
+        onOpenChange={setAuthDialogOpen} 
+        action={authAction}
+      />
     </div>
   );
 };
