@@ -272,12 +272,19 @@ export async function createPost(data: {
   return await convex.mutation("posts:create" as any, data);
 }
 
-export async function likePost(postId: string, userId: string): Promise<void> {
-  await convex.mutation("votes:vote" as any, { 
+export async function likePost(postId: string, userId: string): Promise<{ success: boolean; error?: string }> {
+  return await convex.mutation("votes:upvote" as any, { 
     targetId: postId, 
     targetType: "post",
     userId,
-    value: 1 
+  });
+}
+
+export async function unlikePost(postId: string, userId: string): Promise<{ success: boolean; error?: string }> {
+  return await convex.mutation("votes:removeVote" as any, { 
+    targetId: postId, 
+    targetType: "post",
+    userId,
   });
 }
 
