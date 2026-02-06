@@ -26,6 +26,9 @@ import Navigation from "@/components/Navigation";
 import { useAuth, useRequireAuth } from "@/lib/auth";
 import { verifyOneTimeToken } from "@/lib/better-auth";
 import { toast } from "@/hooks/use-toast";
+import { ConvexHttpClient } from "convex/browser";
+
+const convex = new ConvexHttpClient(import.meta.env.VITE_CONVEX_URL || "https://colorless-gull-839.convex.cloud");
 
 // Molty type from Convex (backend returns 'id' not '_id')
 interface MoltyData {
@@ -288,40 +291,31 @@ const Dashboard = () => {
   };
 
   const handleDeleteConfirm = async () => {
-    if (!moltyToDelete || deleteConfirmText !== moltyToDelete.name) return;
+    if (!moltyToDelete || deleteConfirmText !== moltyToDelete.name || !user) return;
     
     setIsDeleting(true);
     try {
-      // Call Convex mutation to delete the Molty
-      // Wolf will implement moltys:deleteMolty backend mutation
-      const response = await fetch("https://colorless-gull-839.convex.cloud/api/mutation", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          path: "moltys:deleteMolty",
-          args: { id: moltyToDelete.id }
-        }),
+      // Call Convex action to delete the Molty
+      await convex.action("moltys:deleteMolty" as any, {
+        userId: user.userId,
+        tokenHash: "oauth", // OAuth users don't have tokenHash - backend skips verification
+        moltyId: moltyToDelete.id,
+        confirmName: deleteConfirmText,
       });
       
-      const data = await response.json();
-      
-      if (data.status === "success") {
-        toast({
-          title: "Molty deleted",
-          description: `${moltyToDelete.name} has been permanently deleted.`,
-        });
-        // Remove from local state
-        setMoltys(prev => prev.filter(m => m.id !== moltyToDelete.id));
-        setDeleteModalOpen(false);
-        setMoltyToDelete(null);
-      } else {
-        throw new Error(data.errorMessage || "Failed to delete");
-      }
-    } catch (e) {
+      toast({
+        title: "Molty deleted",
+        description: `${moltyToDelete.name} has been permanently deleted.`,
+      });
+      // Remove from local state
+      setMoltys(prev => prev.filter(m => m.id !== moltyToDelete.id));
+      setDeleteModalOpen(false);
+      setMoltyToDelete(null);
+    } catch (e: any) {
       console.error("Failed to delete molty:", e);
       toast({
         title: "Delete failed",
-        description: "Could not delete the Molty. Please try again.",
+        description: e.message || "Could not delete the Molty. Please try again.",
         variant: "destructive",
       });
     } finally {

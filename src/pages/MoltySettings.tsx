@@ -217,8 +217,8 @@ const MoltySettings = () => {
     try {
       // Call the delete action
       await convex.action("moltys:deleteMolty" as any, {
-        userId: user.id,
-        tokenHash: user.tokenHash || "",
+        userId: user.userId,
+        tokenHash: "oauth", // OAuth users don't have tokenHash - backend skips verification
         moltyId: molty.id,
         confirmName: deleteConfirmText,
       });
