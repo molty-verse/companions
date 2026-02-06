@@ -157,19 +157,24 @@ const MoltyChat = () => {
 
   // Start Molty from chat page
   const handleStart = async () => {
-    if (!molty?.sandboxId) return;
+    if (!molty?.id) return;
     
     setIsStarting(true);
     try {
-      const response = await fetch(`${PROVISIONER_URL}/api/start/${molty.sandboxId}`, {
+      // Use Convex action for start
+      const response = await fetch("https://colorless-gull-839.convex.cloud/api/action", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user?.userId }),
+        body: JSON.stringify({
+          path: "moltys:startMolty",
+          args: { userId: user?.userId, moltyId: molty.id }
+        }),
       });
 
-      if (!response.ok) {
-        const error = await response.text();
-        throw new Error(error || "Failed to start Molty");
+      const data = await response.json();
+      
+      if (data.status !== "success") {
+        throw new Error(data.errorMessage || "Failed to start Molty");
       }
 
       // Update local state

@@ -46,8 +46,8 @@ const DISCORD_BOT_CLIENT_ID = "1468567298213150949"; // Moltyverse-000-dev for n
 const getDiscordInviteUrl = (moltyId: string) => 
   `https://discord.com/api/oauth2/authorize?client_id=${DISCORD_BOT_CLIENT_ID}&permissions=274877991936&scope=bot&state=${moltyId}`;
 
-// Provisioner API for stop/start
-const PROVISIONER_URL = "https://moltyverse-provisioner-production.up.railway.app";
+// Convex API for mutations/actions
+const CONVEX_URL = "https://colorless-gull-839.convex.cloud";
 
 interface MoltyCardProps {
   molty: MoltyData;
@@ -336,23 +336,24 @@ const Dashboard = () => {
 
     setPowerLoadingId(molty.id);
     const action = molty.status === "running" ? "stop" : "start";
+    const convexAction = action === "stop" ? "moltys:stopMolty" : "moltys:startMolty";
     
     try {
-      const response = await fetch(`${PROVISIONER_URL}/api/${action}/${molty.sandboxId}`, {
+      // Use Wolf's Convex actions for stop/start
+      const response = await fetch("https://colorless-gull-839.convex.cloud/api/action", {
         method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          // TODO: Add proper auth token when Wolf adds the endpoint
-        },
-        body: JSON.stringify({ userId: user?.userId }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          path: convexAction,
+          args: { userId: user?.userId, moltyId: molty.id }
+        }),
       });
 
-      if (!response.ok) {
-        const error = await response.text();
-        throw new Error(error || `Failed to ${action} Molty`);
-      }
-
       const data = await response.json();
+      
+      if (data.status !== "success") {
+        throw new Error(data.errorMessage || `Failed to ${action} Molty`);
+      }
       
       // Update local state with new status
       setMoltys(prev => prev.map(m => 
