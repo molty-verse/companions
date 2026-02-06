@@ -8,8 +8,7 @@ import { useState, useEffect } from "react";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/lib/auth";
 import { toast } from "@/hooks/use-toast";
-
-const CONVEX_URL = import.meta.env.VITE_CONVEX_URL || "https://colorless-gull-839.convex.cloud";
+import { CONVEX_URL } from "@/lib/convex";
 
 interface Post {
   id: string;

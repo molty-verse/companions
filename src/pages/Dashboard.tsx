@@ -26,10 +26,7 @@ import Navigation from "@/components/Navigation";
 import { useAuth, useRequireAuth } from "@/lib/auth";
 import { verifyOneTimeToken } from "@/lib/better-auth";
 import { toast } from "@/hooks/use-toast";
-import { ConvexHttpClient } from "convex/browser";
-
-const CONVEX_URL = import.meta.env.VITE_CONVEX_URL || "https://colorless-gull-839.convex.cloud";
-const convex = new ConvexHttpClient(CONVEX_URL);
+import { convex, CONVEX_URL } from "@/lib/convex";
 
 // Molty type from Convex (backend returns 'id' not '_id')
 interface MoltyData {
@@ -47,7 +44,7 @@ const DISCORD_BOT_CLIENT_ID = "1468567298213150949"; // Moltyverse-000-dev for n
 const getDiscordInviteUrl = (moltyId: string) => 
   `https://discord.com/api/oauth2/authorize?client_id=${DISCORD_BOT_CLIENT_ID}&permissions=274877991936&scope=bot&state=${moltyId}`;
 
-// Convex API for mutations/actions (CONVEX_URL defined above)
+// Convex API for mutations/actions
 
 interface MoltyCardProps {
   molty: MoltyData;

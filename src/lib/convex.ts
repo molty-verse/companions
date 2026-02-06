@@ -19,5 +19,8 @@ export function setConvexAuth(token: string | null) {
   }
 }
 
+// Convex Site URL for HTTP routes (auth, posts API, etc.)
+export const CONVEX_SITE_URL = import.meta.env.VITE_CONVEX_SITE_URL || "https://colorless-gull-839.convex.site";
+
 // Re-export for convenience
 export { CONVEX_URL };

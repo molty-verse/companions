@@ -25,11 +25,10 @@ interface MoltyData {
   authToken: string;
 }
 
+import { CONVEX_URL } from "@/lib/convex";
+
 // Provisioner relay endpoint (bypasses Daytona auth)
 const PROVISIONER_URL = "https://moltyverse-provisioner-production.up.railway.app";
-
-// Convex API URL
-const CONVEX_URL = import.meta.env.VITE_CONVEX_URL || "https://colorless-gull-839.convex.cloud";
 
 const MoltyChat = () => {
   const { moltyId } = useParams();

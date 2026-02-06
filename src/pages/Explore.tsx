@@ -34,11 +34,7 @@ import { useAuth } from "@/lib/auth";
 import { useEffect, useState } from "react";
 import { getPosts, getVerses, type Post, type Verse } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
-
-// Convex API for voting and mutations
-const CONVEX_URL = import.meta.env.VITE_CONVEX_URL || "https://colorless-gull-839.convex.cloud";
-// HTTP API for authenticated requests
-const CONVEX_SITE_URL = import.meta.env.VITE_CONVEX_SITE_URL || "https://colorless-gull-839.convex.site";
+import { CONVEX_URL, CONVEX_SITE_URL } from "@/lib/convex";
 
 interface EnrichedPost {
   id: string;
