@@ -239,29 +239,6 @@ const CreateMolty = () => {
             description: `${formData.name} is now live`,
           });
           
-          // Auto-save API key if user doesn't have one saved
-          if (!hasSavedKey && formData.apiKey && user?.userId) {
-            try {
-              await fetch(`${CONVEX_URL}/api/mutation`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  path: "users:saveApiKey",
-                  args: { 
-                    userId: user.userId, 
-                    tokenHash: accessToken,
-                    apiKey: formData.apiKey 
-                  }
-                }),
-              });
-              setHasSavedKey(true);
-              console.log("API key auto-saved for future use");
-            } catch (e) {
-              console.error("Failed to auto-save API key:", e);
-              // Non-blocking - Molty was created successfully
-            }
-          }
-          
           setStep(4);
           return;
         }
