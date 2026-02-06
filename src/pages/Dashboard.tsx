@@ -2,10 +2,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 import { Plus, Settings, MessageCircle, Bot, Zap, Clock, TrendingUp, MoreVertical, Power, Loader2, RefreshCw, Link2 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import Navigation from "@/components/Navigation";
 import { useAuth, useRequireAuth } from "@/lib/auth";
+import { verifyOneTimeToken } from "@/lib/better-auth";
+import { toast } from "@/hooks/use-toast";
 
 // Molty type from Convex (backend returns 'id' not '_id')
 interface MoltyData {
@@ -128,6 +130,38 @@ const Dashboard = () => {
   const [moltys, setMoltys] = useState<MoltyData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+
+  // Handle OAuth one-time token verification (cross-domain auth)
+  useEffect(() => {
+    const ott = searchParams.get("ott");
+    if (ott) {
+      // Remove ott from URL immediately
+      searchParams.delete("ott");
+      setSearchParams(searchParams, { replace: true });
+      
+      // Verify the one-time token
+      verifyOneTimeToken(ott)
+        .then(() => {
+          toast({
+            title: "Welcome!",
+            description: "You've been signed in successfully",
+          });
+          // Reload the page to pick up the new session
+          window.location.reload();
+        })
+        .catch((err) => {
+          console.error("OTT verification failed:", err);
+          toast({
+            title: "Sign in failed",
+            description: "Could not complete sign in. Please try again.",
+            variant: "destructive",
+          });
+          navigate("/login");
+        });
+    }
+  }, [searchParams, setSearchParams, navigate]);
 
   const fetchMoltys = async () => {
     if (!user?.userId) return;
