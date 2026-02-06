@@ -1,3 +1,6 @@
+/* eslint-disable react-refresh/only-export-components */
+// This file exports both AuthProvider and hooks - intentional pattern
+
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import {

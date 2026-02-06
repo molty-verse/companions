@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+// Convex action/mutation calls require 'as any' for runtime function names
+
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -244,7 +247,7 @@ const Dashboard = () => {
           navigate("/login");
         });
     }
-  }, [searchParams, setSearchParams, navigate]);
+  }, [searchParams, setSearchParams, navigate, setOAuthUser]);
 
   const fetchMoltys = async () => {
     if (!user?.userId) return;
@@ -288,6 +291,7 @@ const Dashboard = () => {
     if (user?.userId) {
       fetchMoltys();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.userId]);
 
   // Delete handlers

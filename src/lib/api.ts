@@ -2,6 +2,10 @@
 // Auth: HTTP routes via .convex.site
 // Everything else: Convex client via .convex.cloud
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+// Note: Convex function references require 'as any' casts because
+// the function names are strings resolved at runtime, not compile-time types.
+
 import { convex, setConvexAuth } from "./convex";
 
 // .convex.site is for HTTP actions (auth)
