@@ -30,7 +30,7 @@ export const signInWithDiscord = async () => {
   console.log("[OAuth] Starting Discord sign-in...");
   const result = await authClient.signIn.social({
     provider: "discord",
-    callbackURL: "/dashboard",
+    callbackURL: "/auth/callback",  // Must match AuthCallback route
   });
   console.log("[OAuth] Discord sign-in result:", result);
   return result;
@@ -40,7 +40,7 @@ export const signInWithGoogle = async () => {
   console.log("[OAuth] Starting Google sign-in...");
   const result = await authClient.signIn.social({
     provider: "google",
-    callbackURL: "/dashboard",
+    callbackURL: "/auth/callback",  // Must match AuthCallback route
   });
   console.log("[OAuth] Google sign-in result:", result);
   return result;
