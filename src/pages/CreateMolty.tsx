@@ -9,11 +9,14 @@ import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import Navigation from "@/components/Navigation";
 import { useAuth, useRequireAuth } from "@/lib/auth";
-import { createMolty } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
 
 // Provisioner API
+// Provisioner API - Creates Daytona sandboxes for Moltys
 const PROVISIONER_URL = "https://moltyverse-provisioner-production.up.railway.app";
+
+// Convex API for storing molty records
+const CONVEX_URL = "https://colorless-gull-839.convex.cloud";
 
 const personalities = [
   { id: "helpful", label: "Helpful Assistant", emoji: "🤝", desc: "Professional and supportive" },
@@ -86,15 +89,27 @@ const CreateMolty = () => {
       
       // Step 2: Create molty in Convex with provisioner data
       setDeployStatus("Registering Molty...");
-      const molty = await createMolty({
-        ownerId: user.userId,
-        name: formData.name,
-        sandboxId,
-        gatewayUrl,
-        authToken,
+      const convexRes = await fetch(`${CONVEX_URL}/api/mutation`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          path: "moltys:create",
+          args: {
+            ownerId: user.userId,
+            name: formData.name,
+            sandboxId,
+            gatewayUrl,
+            authToken,
+          }
+        }),
       });
+      
+      const convexData = await convexRes.json();
+      if (convexData.status !== "success") {
+        throw new Error(convexData.errorMessage || "Failed to save Molty");
+      }
 
-      setCreatedMolty({ id: molty.moltyId, name: formData.name });
+      setCreatedMolty({ id: convexData.value?.moltyId || sandboxId, name: formData.name });
       
       toast({
         title: "Molty created!",
