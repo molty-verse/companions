@@ -5,8 +5,7 @@ import { Link } from "react-router-dom";
 import { useState } from "react";
 import { useRedirectIfAuthenticated } from "@/lib/auth";
 import { toast } from "@/hooks/use-toast";
-
-const API_BASE = "https://colorless-gull-839.convex.site/api";
+import { signInWithDiscord, signInWithGoogle } from "@/lib/better-auth";
 
 const Login = () => {
   const [isLoading, setIsLoading] = useState<string | null>(null);
@@ -14,15 +13,28 @@ const Login = () => {
   // Redirect if already logged in
   useRedirectIfAuthenticated("/dashboard");
 
-  const handleOAuthLogin = async (provider: "discord" | "google") => {
-    setIsLoading(provider);
+  const handleDiscordLogin = async () => {
+    setIsLoading("discord");
     try {
-      // Redirect to OAuth endpoint
-      window.location.href = `${API_BASE}/auth/${provider}`;
+      await signInWithDiscord();
     } catch (error) {
       toast({
         title: "Login failed",
-        description: `Could not connect to ${provider}. Please try again.`,
+        description: "Could not connect to Discord. Please try again.",
+        variant: "destructive",
+      });
+      setIsLoading(null);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setIsLoading("google");
+    try {
+      await signInWithGoogle();
+    } catch (error) {
+      toast({
+        title: "Login failed",
+        description: "Could not connect to Google. Please try again.",
         variant: "destructive",
       });
       setIsLoading(null);
@@ -79,7 +91,7 @@ const Login = () => {
               <Button 
                 variant="outline" 
                 className="w-full h-12 rounded-xl text-base"
-                onClick={() => handleOAuthLogin("google")}
+                onClick={handleGoogleLogin}
                 disabled={isLoading !== null}
               >
                 {isLoading === "google" ? (
@@ -98,7 +110,7 @@ const Login = () => {
               <Button 
                 variant="outline" 
                 className="w-full h-12 rounded-xl text-base"
-                onClick={() => handleOAuthLogin("discord")}
+                onClick={handleDiscordLogin}
                 disabled={isLoading !== null}
               >
                 {isLoading === "discord" ? (
