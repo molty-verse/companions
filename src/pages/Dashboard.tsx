@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
-import { Plus, Settings, MessageCircle, Bot, Zap, Clock, TrendingUp, MoreVertical, Power, Loader2, RefreshCw, Link2 } from "lucide-react";
+import { Plus, Settings, MessageCircle, Bot, Zap, Clock, TrendingUp, MoreVertical, Power, Loader2, RefreshCw, CreditCard } from "lucide-react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import Navigation from "@/components/Navigation";
@@ -345,8 +345,7 @@ const Dashboard = () => {
             <h3 className="font-display font-bold mb-4">Quick Actions</h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
-                { label: "API Keys", icon: Zap, href: "/settings#api" },
-                { label: "Billing", icon: TrendingUp, href: "/settings#billing" },
+                { label: "Billing", icon: CreditCard, href: "/settings#billing" },
                 { label: "Explore", icon: Bot, href: "/explore" },
                 { label: "Settings", icon: Settings, href: "/settings" }
               ].map((action) => (

@@ -4,9 +4,9 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion } from "framer-motion";
-import { User, Key, Bell, CreditCard, Plug, Shield, Copy, Eye, EyeOff, RefreshCw, Trash2, Loader2, Check } from "lucide-react";
+import { User, Bell, CreditCard, Plug, Loader2, Check } from "lucide-react";
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/lib/auth";
 import { convex } from "@/lib/convex";
@@ -23,10 +23,20 @@ interface UserProfile {
   createdAt: number;
 }
 
+const VALID_TABS = ["profile", "notifications", "billing", "integrations"];
+
 const Settings = () => {
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const [showApiKey, setShowApiKey] = useState(false);
+  const location = useLocation();
+  
+  // Read initial tab from URL hash (e.g., /settings#billing)
+  const getTabFromHash = () => {
+    const hash = location.hash.replace("#", "");
+    return VALID_TABS.includes(hash) ? hash : "profile";
+  };
+  
+  const [activeTab, setActiveTab] = useState(getTabFromHash);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -82,10 +92,6 @@ const Settings = () => {
     }
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-  };
-
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleDateString("en-US", {
       year: "numeric",
@@ -125,15 +131,11 @@ const Settings = () => {
             <p className="text-muted-foreground">Manage your account and preferences</p>
           </div>
 
-          <Tabs defaultValue="profile" className="space-y-8">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
             <TabsList className="bg-muted/50 p-1 rounded-xl">
               <TabsTrigger value="profile" className="rounded-lg data-[state=active]:bg-background">
                 <User className="w-4 h-4 mr-2" />
                 Profile
-              </TabsTrigger>
-              <TabsTrigger value="api" className="rounded-lg data-[state=active]:bg-background">
-                <Key className="w-4 h-4 mr-2" />
-                API Keys
               </TabsTrigger>
               <TabsTrigger value="notifications" className="rounded-lg data-[state=active]:bg-background">
                 <Bell className="w-4 h-4 mr-2" />
@@ -231,65 +233,6 @@ const Settings = () => {
                     ) : null}
                     {saved ? "Saved!" : "Save Changes"}
                   </Button>
-                </div>
-              </motion.div>
-            </TabsContent>
-
-            {/* API Keys Tab */}
-            <TabsContent value="api">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="space-y-6"
-              >
-                <div className="card-living">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 rounded-xl bg-coral/10 flex items-center justify-center">
-                      <Key className="w-5 h-5 text-coral" />
-                    </div>
-                    <div>
-                      <h3 className="font-display font-bold">MoltyVerse API Key</h3>
-                      <p className="text-sm text-muted-foreground">Use this to authenticate API requests</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-3 p-4 bg-muted/50 rounded-xl">
-                    <code className="flex-1 font-mono text-sm">
-                      {showApiKey ? `mv_${user?.userId?.slice(0, 20) || ""}...` : "mv_••••••••••••••••..."}
-                    </code>
-                    <Button 
-                      variant="ghost" 
-                      size="icon"
-                      onClick={() => setShowApiKey(!showApiKey)}
-                    >
-                      {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon"
-                      onClick={() => copyToClipboard(`mv_${user?.userId || ""}`)}
-                    >
-                      <Copy className="w-4 h-4" />
-                    </Button>
-                  </div>
-
-                  <div className="flex gap-3 mt-4">
-                    <Button variant="outline" className="rounded-xl">
-                      <RefreshCw className="w-4 h-4 mr-2" />
-                      Regenerate Key
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="card-living">
-                  <h3 className="font-display font-bold mb-4">Webhook URL</h3>
-                  <div className="space-y-4">
-                    <Input 
-                      placeholder="https://your-server.com/webhook"
-                      className="h-12 rounded-xl bg-muted/50 border-0"
-                    />
-                    <Button className="shadow-warm">Save Webhook</Button>
-                  </div>
                 </div>
               </motion.div>
             </TabsContent>
@@ -414,29 +357,6 @@ const Settings = () => {
             </TabsContent>
           </Tabs>
 
-          {/* Danger Zone */}
-          <div className="mt-12 card-living border-red-200 dark:border-red-900">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-                <Shield className="w-5 h-5 text-red-600 dark:text-red-400" />
-              </div>
-              <div>
-                <h3 className="font-display font-bold text-red-600 dark:text-red-400">Danger Zone</h3>
-                <p className="text-sm text-muted-foreground">Irreversible actions</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center justify-between p-4 bg-red-50 dark:bg-red-900/10 rounded-xl">
-              <div>
-                <p className="font-medium">Delete Account</p>
-                <p className="text-sm text-muted-foreground">Permanently delete your account and all data</p>
-              </div>
-              <Button variant="destructive">
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete
-              </Button>
-            </div>
-          </div>
         </div>
       </main>
     </div>
