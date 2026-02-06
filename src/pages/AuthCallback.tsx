@@ -13,9 +13,11 @@ import { toast } from "@/hooks/use-toast";
 const AuthCallback = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { setOAuthUser } = useAuth();
+  const { setOAuthUser, user, isAuthenticated } = useAuth();
   const [error, setError] = useState<string | null>(null);
+  const [authComplete, setAuthComplete] = useState(false);
 
+  // Handle OTT verification
   useEffect(() => {
     const ott = searchParams.get("ott");
     console.log("[AuthCallback] Received OTT:", ott ? "present" : "missing");
@@ -45,11 +47,8 @@ const AuthCallback = () => {
           description: "You've been signed in successfully",
         });
         
-        // Small delay to ensure localStorage is flushed before navigation
-        // Then use navigate() to preserve React context
-        setTimeout(() => {
-          navigate("/dashboard", { replace: true });
-        }, 100);
+        // Mark auth as complete - navigation will happen in separate effect
+        setAuthComplete(true);
       })
       .catch((err) => {
         console.error("[AuthCallback] OTT verification failed:", err);
@@ -62,6 +61,14 @@ const AuthCallback = () => {
         setTimeout(() => navigate("/login"), 2000);
       });
   }, [searchParams, navigate, setOAuthUser]);
+
+  // Navigate to dashboard AFTER user state is actually set
+  useEffect(() => {
+    if (authComplete && isAuthenticated && user) {
+      console.log("[AuthCallback] User confirmed in state, navigating to dashboard");
+      navigate("/dashboard", { replace: true });
+    }
+  }, [authComplete, isAuthenticated, user, navigate]);
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center">
