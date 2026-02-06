@@ -53,6 +53,14 @@ const Settings = () => {
   const [apiKeySaving, setApiKeySaving] = useState(false);
   const [apiKeySaved, setApiKeySaved] = useState(false);
 
+  // Notification preferences state
+  const [notificationPrefs, setNotificationPrefs] = useState({
+    emailNotifications: true,
+    pushNotifications: true,
+    weeklyDigest: false,
+  });
+  const [notifSaving, setNotifSaving] = useState(false);
+
   // Redirect if not authenticated
   useEffect(() => {
     if (!isAuthenticated) {
@@ -101,6 +109,50 @@ const Settings = () => {
     };
     fetchApiKey();
   }, [user]);
+
+  // Load notification preferences
+  useEffect(() => {
+    const fetchNotifPrefs = async () => {
+      if (!user?.userId) return;
+      try {
+        const prefs = await convex.query("users:getNotificationPrefs" as any, {
+          userId: user.userId,
+        });
+        if (prefs) {
+          setNotificationPrefs({
+            emailNotifications: prefs.emailNotifications ?? true,
+            pushNotifications: prefs.pushNotifications ?? true,
+            weeklyDigest: prefs.weeklyDigest ?? false,
+          });
+        }
+      } catch (e) {
+        console.error("Failed to load notification prefs:", e);
+      }
+    };
+    fetchNotifPrefs();
+  }, [user]);
+
+  // Handler to update notification preferences
+  const handleNotificationChange = async (key: keyof typeof notificationPrefs, value: boolean) => {
+    if (!user?.userId) return;
+    
+    const newPrefs = { ...notificationPrefs, [key]: value };
+    setNotificationPrefs(newPrefs);
+    
+    setNotifSaving(true);
+    try {
+      await convex.mutation("users:updateNotificationPrefs" as any, {
+        userId: user.userId,
+        [key]: value,
+      });
+    } catch (e) {
+      console.error("Failed to update notification pref:", e);
+      // Revert on error
+      setNotificationPrefs(notificationPrefs);
+    } finally {
+      setNotifSaving(false);
+    }
+  };
 
   const handleSaveProfile = async () => {
     if (!user?.userId) return;
@@ -379,7 +431,6 @@ const Settings = () => {
             </TabsContent>
 
             {/* Notifications Tab */}
-            {/* TODO: Implement users:updateNotificationPrefs Convex mutation to persist these toggles */}
             <TabsContent value="notifications">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -389,24 +440,46 @@ const Settings = () => {
                 <h2 className="font-display text-xl font-bold mb-6">Notification Preferences</h2>
                 
                 <div className="space-y-6">
-                  {[
-                    { label: "Email notifications", description: "Receive updates via email", defaultChecked: true },
-                    { label: "Molty activity alerts", description: "When your Moltys receive messages", defaultChecked: true },
-                    { label: "Usage alerts", description: "When approaching API limits", defaultChecked: true },
-                    { label: "Marketing emails", description: "News and product updates", defaultChecked: false },
-                  ].map((item) => (
-                    <div key={item.label} className="flex items-center justify-between py-3 border-b border-border last:border-0">
-                      <div>
-                        <p className="font-medium">{item.label}</p>
-                        <p className="text-sm text-muted-foreground">{item.description}</p>
-                      </div>
-                      <Switch defaultChecked={item.defaultChecked} />
+                  <div className="flex items-center justify-between py-3 border-b border-border">
+                    <div>
+                      <p className="font-medium">Email notifications</p>
+                      <p className="text-sm text-muted-foreground">Receive updates via email</p>
                     </div>
-                  ))}
+                    <Switch 
+                      checked={notificationPrefs.emailNotifications}
+                      onCheckedChange={(checked) => handleNotificationChange("emailNotifications", checked)}
+                      disabled={notifSaving}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between py-3 border-b border-border">
+                    <div>
+                      <p className="font-medium">Push notifications</p>
+                      <p className="text-sm text-muted-foreground">Browser push notifications for important updates</p>
+                    </div>
+                    <Switch 
+                      checked={notificationPrefs.pushNotifications}
+                      onCheckedChange={(checked) => handleNotificationChange("pushNotifications", checked)}
+                      disabled={notifSaving}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between py-3 border-b border-border last:border-0">
+                    <div>
+                      <p className="font-medium">Weekly digest</p>
+                      <p className="text-sm text-muted-foreground">Summary of your Moltys' activity</p>
+                    </div>
+                    <Switch 
+                      checked={notificationPrefs.weeklyDigest}
+                      onCheckedChange={(checked) => handleNotificationChange("weeklyDigest", checked)}
+                      disabled={notifSaving}
+                    />
+                  </div>
                 </div>
-                <p className="text-xs text-muted-foreground mt-4">
-                  Note: Notification preferences are not saved yet.
-                </p>
+                {notifSaving && (
+                  <p className="text-xs text-muted-foreground mt-4 flex items-center gap-2">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    Saving...
+                  </p>
+                )}
               </motion.div>
             </TabsContent>
 
