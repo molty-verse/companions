@@ -1,7 +1,25 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { motion } from "framer-motion";
-import { Plus, Settings, MessageCircle, Bot, Zap, Clock, TrendingUp, MoreVertical, Power, Loader2, RefreshCw, CreditCard } from "lucide-react";
+import { Plus, Settings, MessageCircle, Bot, Zap, Clock, TrendingUp, MoreVertical, Power, Loader2, RefreshCw, CreditCard, Trash2 } from "lucide-react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import Navigation from "@/components/Navigation";
@@ -25,7 +43,12 @@ const DISCORD_BOT_CLIENT_ID = "1468567298213150949"; // Moltyverse-000-dev for n
 const getDiscordInviteUrl = (moltyId: string) => 
   `https://discord.com/api/oauth2/authorize?client_id=${DISCORD_BOT_CLIENT_ID}&permissions=274877991936&scope=bot&state=${moltyId}`;
 
-const MoltyCard = ({ molty }: { molty: MoltyData }) => {
+interface MoltyCardProps {
+  molty: MoltyData;
+  onDelete: (molty: MoltyData) => void;
+}
+
+const MoltyCard = ({ molty, onDelete }: MoltyCardProps) => {
   const statusColors = {
     running: "bg-green-500",
     stopped: "bg-gray-400",
@@ -60,9 +83,29 @@ const MoltyCard = ({ molty }: { molty: MoltyData }) => {
             <p className="text-sm text-muted-foreground">{statusLabels[molty.status]}</p>
           </div>
         </div>
-        <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity">
-          <MoreVertical className="w-4 h-4" />
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity">
+              <MoreVertical className="w-4 h-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem asChild>
+              <Link to={`/m/${molty.id}/settings`}>
+                <Settings className="w-4 h-4 mr-2" />
+                Settings
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem 
+              className="text-red-600 focus:text-red-600"
+              onClick={() => onDelete(molty)}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete Molty
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Gateway URL */}
@@ -132,6 +175,12 @@ const Dashboard = () => {
   const [error, setError] = useState<string | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+
+  // Delete modal state
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [moltyToDelete, setMoltyToDelete] = useState<MoltyData | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Handle OAuth one-time token verification (cross-domain auth)
   useEffect(() => {
@@ -211,6 +260,55 @@ const Dashboard = () => {
       fetchMoltys();
     }
   }, [user?.userId]);
+
+  // Delete handlers
+  const handleDeleteClick = (molty: MoltyData) => {
+    setMoltyToDelete(molty);
+    setDeleteConfirmText("");
+    setDeleteModalOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!moltyToDelete || deleteConfirmText !== moltyToDelete.name) return;
+    
+    setIsDeleting(true);
+    try {
+      // Call Convex mutation to delete the Molty
+      // Wolf will implement moltys:deleteMolty backend mutation
+      const response = await fetch("https://colorless-gull-839.convex.cloud/api/mutation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          path: "moltys:deleteMolty",
+          args: { id: moltyToDelete.id }
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.status === "success") {
+        toast({
+          title: "Molty deleted",
+          description: `${moltyToDelete.name} has been permanently deleted.`,
+        });
+        // Remove from local state
+        setMoltys(prev => prev.filter(m => m.id !== moltyToDelete.id));
+        setDeleteModalOpen(false);
+        setMoltyToDelete(null);
+      } else {
+        throw new Error(data.errorMessage || "Failed to delete");
+      }
+    } catch (e) {
+      console.error("Failed to delete molty:", e);
+      toast({
+        title: "Delete failed",
+        description: "Could not delete the Molty. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   if (authLoading) {
     return (
@@ -315,7 +413,7 @@ const Dashboard = () => {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: idx * 0.1 }}
                   >
-                    <MoltyCard molty={molty} />
+                    <MoltyCard molty={molty} onDelete={handleDeleteClick} />
                   </motion.div>
                 ))}
                 
@@ -364,6 +462,58 @@ const Dashboard = () => {
           </div>
         </div>
       </main>
+
+      {/* Delete Molty Confirmation Modal */}
+      <AlertDialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-red-600">Delete Molty Permanently?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>
+                  This action <strong>cannot be undone</strong>. This will permanently delete{" "}
+                  <strong>{moltyToDelete?.name}</strong> and all associated data including:
+                </p>
+                <ul className="list-disc list-inside text-sm space-y-1">
+                  <li>All chat history and messages</li>
+                  <li>Custom configurations and settings</li>
+                  <li>Connected integrations (Discord, etc.)</li>
+                  <li>The sandbox environment</li>
+                </ul>
+                <p className="pt-2">
+                  To confirm, please type <strong>{moltyToDelete?.name}</strong> below:
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Input
+            value={deleteConfirmText}
+            onChange={(e) => setDeleteConfirmText(e.target.value)}
+            placeholder={`Type "${moltyToDelete?.name}" to confirm`}
+            className="mt-2"
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              disabled={deleteConfirmText !== moltyToDelete?.name || isDeleting}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete Permanently
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
