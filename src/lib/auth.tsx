@@ -18,6 +18,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (username: string, email: string, password: string) => Promise<void>;
   logout: () => void;
+  setOAuthUser: (user: User) => void; // For OAuth bridge
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -29,6 +30,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Check for existing session on mount
   useEffect(() => {
     async function checkAuth() {
+      // Check for OAuth user first (no JWT verification needed)
+      const isOAuth = localStorage.getItem("moltyverse_oauth") === "true";
+      const storedUser = getStoredUser();
+      
+      if (isOAuth && storedUser) {
+        console.log("[Auth] OAuth user found, skipping token verification");
+        setUser(storedUser);
+        setIsLoading(false);
+        return;
+      }
+      
       const token = getAccessToken();
       if (!token) {
         setIsLoading(false);
@@ -36,12 +48,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // Try stored user first for instant UI
-      const storedUser = getStoredUser();
       if (storedUser) {
         setUser(storedUser);
       }
 
-      // Verify token is still valid
+      // Verify token is still valid (only for JWT auth, not OAuth)
       try {
         const verifiedUser = await verifyToken();
         if (verifiedUser) {
@@ -49,11 +60,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else {
           // Token invalid, clear everything
           clearTokens();
+          localStorage.removeItem("moltyverse_oauth");
           setUser(null);
         }
       } catch {
-        clearTokens();
-        setUser(null);
+        // If verification fails but we have a stored user, keep them logged in
+        // This handles the case where the verify endpoint doesn't exist
+        if (storedUser) {
+          console.log("[Auth] Token verification failed but using stored user");
+          setUser(storedUser);
+        } else {
+          clearTokens();
+          localStorage.removeItem("moltyverse_oauth");
+          setUser(null);
+        }
       }
 
       setIsLoading(false);
@@ -74,9 +94,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     clearTokens();
+    localStorage.removeItem("moltyverse_oauth");
     setUser(null);
     // Navigate to home instead of login
     window.location.href = "/";
+  };
+
+  // For OAuth: directly set user without going through JWT flow
+  const setOAuthUser = (oauthUser: User) => {
+    // Store in localStorage for persistence
+    localStorage.setItem("moltyverse_user", JSON.stringify(oauthUser));
+    // Mark as OAuth user (no JWT to verify)
+    localStorage.setItem("moltyverse_oauth", "true");
+    setUser(oauthUser);
   };
 
   return (
@@ -88,6 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         register,
         logout,
+        setOAuthUser,
       }}
     >
       {children}

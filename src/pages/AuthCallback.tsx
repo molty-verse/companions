@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { verifyOneTimeToken } from "@/lib/better-auth";
+import { useAuth } from "@/lib/auth";
 import { toast } from "@/hooks/use-toast";
 
 /**
@@ -12,6 +13,7 @@ import { toast } from "@/hooks/use-toast";
 const AuthCallback = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { setOAuthUser } = useAuth();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -26,10 +28,18 @@ const AuthCallback = () => {
       return;
     }
 
-    // Verify the one-time token
+    // Verify the one-time token and get user data
     verifyOneTimeToken(ott)
-      .then(() => {
-        console.log("[AuthCallback] OTT verified successfully!");
+      .then((userData) => {
+        console.log("[AuthCallback] OTT verified, user:", userData);
+        
+        // Set user in auth context (this also persists to localStorage)
+        setOAuthUser({
+          userId: userData.userId,
+          username: userData.username,
+          email: userData.email,
+        });
+        
         toast({
           title: "Welcome!",
           description: "You've been signed in successfully",
@@ -46,7 +56,7 @@ const AuthCallback = () => {
         });
         setTimeout(() => navigate("/login"), 2000);
       });
-  }, [searchParams, navigate]);
+  }, [searchParams, navigate, setOAuthUser]);
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center">
