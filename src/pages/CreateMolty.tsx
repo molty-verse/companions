@@ -1,0 +1,323 @@
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { motion } from "framer-motion";
+import { ArrowLeft, ArrowRight, Sparkles, Bot, Palette, Zap, Check, Loader2 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { useState } from "react";
+import Navigation from "@/components/Navigation";
+
+const personalities = [
+  { id: "helpful", label: "Helpful Assistant", emoji: "🤝", desc: "Professional and supportive" },
+  { id: "creative", label: "Creative Artist", emoji: "🎨", desc: "Imaginative and expressive" },
+  { id: "analytical", label: "Analyst", emoji: "📊", desc: "Data-driven and precise" },
+  { id: "playful", label: "Playful Friend", emoji: "🎮", desc: "Fun and engaging" },
+  { id: "wise", label: "Wise Mentor", emoji: "🧙", desc: "Thoughtful and guiding" },
+  { id: "custom", label: "Custom", emoji: "✨", desc: "Define your own" }
+];
+
+const avatarOptions = ["🤖", "🧠", "✨", "🎯", "🚀", "💡", "🔮", "🌟", "⚡", "🎨", "📊", "🎮"];
+
+const CreateMolty = () => {
+  const [step, setStep] = useState(1);
+  const [isDeploying, setIsDeploying] = useState(false);
+  const [formData, setFormData] = useState({
+    name: "",
+    personality: "helpful",
+    avatar: "🤖",
+    description: "",
+    apiKey: ""
+  });
+
+  const handleDeploy = async () => {
+    setIsDeploying(true);
+    // Simulate deployment
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    setIsDeploying(false);
+    setStep(4);
+  };
+
+  return (
+    <div className="min-h-screen bg-background font-body grain">
+      <Navigation />
+      
+      <main className="pt-28 pb-16">
+        <div className="container mx-auto px-4 max-w-2xl">
+          {/* Back link */}
+          <Link 
+            to="/dashboard" 
+            className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-8"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Back to dashboard</span>
+          </Link>
+
+          {/* Progress indicator */}
+          <div className="flex items-center justify-center gap-2 mb-8">
+            {[1, 2, 3].map((s) => (
+              <div key={s} className="flex items-center">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-display font-bold transition-colors ${
+                  step >= s 
+                    ? 'bg-coral text-white' 
+                    : 'bg-muted text-muted-foreground'
+                }`}>
+                  {step > s ? <Check className="w-5 h-5" /> : s}
+                </div>
+                {s < 3 && (
+                  <div className={`w-12 h-1 mx-2 rounded-full transition-colors ${
+                    step > s ? 'bg-coral' : 'bg-muted'
+                  }`} />
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Step 1: Basic Info */}
+          {step === 1 && (
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="card-bento"
+            >
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-coral to-coral/80 flex items-center justify-center">
+                  <Bot className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="font-display text-2xl font-bold">Name Your Molty</h1>
+                  <p className="text-muted-foreground">Give your AI agent an identity</p>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Display Name</Label>
+                  <Input
+                    id="name"
+                    placeholder="e.g., CodeBuddy, CreativeBot..."
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="h-12 rounded-xl"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Choose an Avatar</Label>
+                  <div className="grid grid-cols-6 gap-3">
+                    {avatarOptions.map((emoji) => (
+                      <button
+                        key={emoji}
+                        onClick={() => setFormData({ ...formData, avatar: emoji })}
+                        className={`w-12 h-12 rounded-xl text-2xl flex items-center justify-center transition-all ${
+                          formData.avatar === emoji 
+                            ? 'bg-coral/20 ring-2 ring-coral scale-110' 
+                            : 'bg-muted hover:bg-muted/80'
+                        }`}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="description">Short Bio (optional)</Label>
+                  <Textarea
+                    id="description"
+                    placeholder="What makes your Molty unique?"
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    className="rounded-xl resize-none"
+                    rows={3}
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end mt-8">
+                <Button 
+                  onClick={() => setStep(2)} 
+                  disabled={!formData.name}
+                  className="shadow-warm"
+                >
+                  Next Step
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Step 2: Personality */}
+          {step === 2 && (
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="card-bento"
+            >
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet to-violet/80 flex items-center justify-center">
+                  <Palette className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="font-display text-2xl font-bold">Choose Personality</h1>
+                  <p className="text-muted-foreground">How should your Molty behave?</p>
+                </div>
+              </div>
+
+              <RadioGroup
+                value={formData.personality}
+                onValueChange={(value) => setFormData({ ...formData, personality: value })}
+                className="grid grid-cols-2 gap-4"
+              >
+                {personalities.map((p) => (
+                  <div key={p.id}>
+                    <RadioGroupItem value={p.id} id={p.id} className="peer sr-only" />
+                    <Label
+                      htmlFor={p.id}
+                      className="flex flex-col items-center p-6 rounded-xl border-2 border-muted cursor-pointer transition-all peer-data-[state=checked]:border-violet peer-data-[state=checked]:bg-violet/5 hover:bg-muted/50"
+                    >
+                      <span className="text-3xl mb-2">{p.emoji}</span>
+                      <span className="font-medium text-center">{p.label}</span>
+                      <span className="text-xs text-muted-foreground text-center mt-1">{p.desc}</span>
+                    </Label>
+                  </div>
+                ))}
+              </RadioGroup>
+
+              <div className="flex justify-between mt-8">
+                <Button variant="ghost" onClick={() => setStep(1)}>
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back
+                </Button>
+                <Button onClick={() => setStep(3)} className="shadow-warm bg-violet hover:bg-violet/90">
+                  Next Step
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Step 3: API Key & Deploy */}
+          {step === 3 && (
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="card-bento"
+            >
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-coral to-violet flex items-center justify-center">
+                  <Zap className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="font-display text-2xl font-bold">Power Up</h1>
+                  <p className="text-muted-foreground">Connect your Claude API key</p>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <div className="p-4 rounded-xl bg-muted/50 border border-border">
+                  <p className="text-sm text-muted-foreground">
+                    Your API key is stored securely in your Molty's sandbox environment and never touches our servers.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="apiKey">Claude API Key</Label>
+                  <Input
+                    id="apiKey"
+                    type="password"
+                    placeholder="sk-ant-..."
+                    value={formData.apiKey}
+                    onChange={(e) => setFormData({ ...formData, apiKey: e.target.value })}
+                    className="h-12 rounded-xl font-mono"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Get your key from{" "}
+                    <a href="https://console.anthropic.com" target="_blank" rel="noopener noreferrer" className="text-coral hover:underline">
+                      console.anthropic.com
+                    </a>
+                  </p>
+                </div>
+
+                {/* Preview card */}
+                <div className="p-6 rounded-xl bg-gradient-to-br from-muted/50 to-muted/30 border border-border">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-4">Preview</p>
+                  <div className="flex items-center gap-4">
+                    <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-coral/20 to-violet/20 flex items-center justify-center text-3xl">
+                      {formData.avatar}
+                    </div>
+                    <div>
+                      <h3 className="font-display font-bold text-lg">{formData.name || "Your Molty"}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {personalities.find(p => p.id === formData.personality)?.label}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-between mt-8">
+                <Button variant="ghost" onClick={() => setStep(2)}>
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back
+                </Button>
+                <Button 
+                  onClick={handleDeploy} 
+                  disabled={!formData.apiKey || isDeploying}
+                  className="shadow-warm bg-gradient-to-r from-coral to-violet hover:opacity-90"
+                >
+                  {isDeploying ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Deploying...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      Deploy Molty
+                    </>
+                  )}
+                </Button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Step 4: Success */}
+          {step === 4 && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="card-bento text-center"
+            >
+              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-coral to-violet flex items-center justify-center mx-auto mb-6 text-4xl">
+                {formData.avatar}
+              </div>
+              <h1 className="font-display text-3xl font-bold mb-2">
+                {formData.name} is Live! 🎉
+              </h1>
+              <p className="text-muted-foreground mb-8">
+                Your AI agent is deployed and ready to chat
+              </p>
+
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Button asChild className="shadow-warm">
+                  <Link to="/m/new-molty">
+                    Start Chatting
+                  </Link>
+                </Button>
+                <Button asChild variant="outline">
+                  <Link to="/dashboard">
+                    Go to Dashboard
+                  </Link>
+                </Button>
+              </div>
+            </motion.div>
+          )}
+        </div>
+      </main>
+    </div>
+  );
+};
+
+export default CreateMolty;
