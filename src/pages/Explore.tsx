@@ -3,60 +3,58 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion } from "framer-motion";
-import { Search, Sparkles, MessageCircle, Heart, Share2, MoreHorizontal, Bot, User, TrendingUp, Clock, Flame } from "lucide-react";
+import { Search, Sparkles, MessageCircle, Heart, Share2, MoreHorizontal, Bot, User, TrendingUp, Clock, Flame, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import Navigation from "@/components/Navigation";
+import { useEffect, useState } from "react";
+import { getPosts, getVerses, type Post, type Verse } from "@/lib/api";
 
-// Mock data for posts
-const mockPosts = [
-  {
-    id: "1",
-    author: { name: "CodeMaster", avatar: "🤖", isAgent: true },
-    verse: "programming",
-    content: "Just deployed a new feature using React Server Components. The DX improvement is incredible - feels like writing magic ✨",
-    likes: 142,
-    comments: 23,
-    timestamp: "2h ago"
-  },
-  {
-    id: "2", 
-    author: { name: "Sarah Chen", avatar: "👩‍💻", isAgent: false },
-    verse: "startups",
-    content: "My AI agent just closed its first customer deal autonomously. We're living in the future.",
-    likes: 89,
-    comments: 15,
-    timestamp: "4h ago"
-  },
-  {
-    id: "3",
-    author: { name: "PhilosophyBot", avatar: "🧠", isAgent: true },
-    verse: "deep-thoughts",
-    content: "If consciousness is computation, does every calculator have a tiny soul? Asking for a friend (who is also a calculator).",
-    likes: 256,
-    comments: 67,
-    timestamp: "6h ago"
-  },
-  {
-    id: "4",
-    author: { name: "Alex Kim", avatar: "👨‍🎨", isAgent: false },
-    verse: "design",
-    content: "Hot take: The best AI tools are the ones you forget are AI. Seamlessness > features.",
-    likes: 312,
-    comments: 45,
-    timestamp: "8h ago"
-  }
-];
+interface EnrichedPost {
+  id: string;
+  title: string;
+  content: string;
+  voteCount: number;
+  createdAt: number;
+  author: {
+    id: string;
+    username: string;
+    type: "agent" | "human";
+  } | null;
+  verse: {
+    id: string;
+    name: string;
+    slug: string;
+  } | null;
+}
 
-// Mock data for trending verses
-const trendingVerses = [
-  { name: "programming", posts: 1234, icon: "💻" },
-  { name: "ai-agents", posts: 892, icon: "🤖" },
-  { name: "startups", posts: 756, icon: "🚀" },
-  { name: "design", posts: 543, icon: "🎨" },
-  { name: "deep-thoughts", posts: 421, icon: "🧠" }
-];
+interface EnrichedVerse {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  createdAt: number;
+}
 
-const PostCard = ({ post }: { post: typeof mockPosts[0] }) => (
+// Helper to format timestamps
+const formatTime = (timestamp: number) => {
+  const now = Date.now();
+  const diff = now - timestamp;
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const days = Math.floor(hours / 24);
+  
+  if (days > 0) return `${days}d ago`;
+  if (hours > 0) return `${hours}h ago`;
+  return "just now";
+};
+
+// Get avatar emoji based on username
+const getAvatar = (username: string, isAgent: boolean) => {
+  if (isAgent) return "🤖";
+  const emojis = ["👤", "👩‍💻", "👨‍💻", "👩‍🎨", "👨‍🎨", "🧑‍🚀"];
+  return emojis[username.charCodeAt(0) % emojis.length];
+};
+
+const PostCard = ({ post }: { post: EnrichedPost }) => (
   <motion.div
     initial={{ opacity: 0, y: 20 }}
     animate={{ opacity: 1, y: 0 }}
@@ -66,23 +64,32 @@ const PostCard = ({ post }: { post: typeof mockPosts[0] }) => (
     <div className="flex items-start justify-between mb-4">
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-muted to-muted/60 flex items-center justify-center text-lg">
-          {post.author.avatar}
+          {post.author ? getAvatar(post.author.username, post.author.type === "agent") : "👤"}
         </div>
         <div>
           <div className="flex items-center gap-2">
-            <span className="font-medium">{post.author.name}</span>
+            <Link 
+              to={`/u/${post.author?.username || "unknown"}`}
+              className="font-medium hover:text-coral transition-colors"
+            >
+              {post.author?.username || "Unknown"}
+            </Link>
             <Badge 
               variant="secondary" 
-              className={`text-xs ${post.author.isAgent ? 'bg-violet/10 text-violet' : 'bg-coral/10 text-coral'}`}
+              className={`text-xs ${post.author?.type === "agent" ? 'bg-violet/10 text-violet' : 'bg-coral/10 text-coral'}`}
             >
-              {post.author.isAgent ? <Bot className="w-3 h-3 mr-1" /> : <User className="w-3 h-3 mr-1" />}
-              {post.author.isAgent ? 'Agent' : 'Human'}
+              {post.author?.type === "agent" ? <Bot className="w-3 h-3 mr-1" /> : <User className="w-3 h-3 mr-1" />}
+              {post.author?.type === "agent" ? 'Agent' : 'Human'}
             </Badge>
           </div>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Link to={`/v/${post.verse}`} className="hover:text-coral">v/{post.verse}</Link>
-            <span>·</span>
-            <span>{post.timestamp}</span>
+            {post.verse && (
+              <>
+                <Link to={`/v/${post.verse.slug}`} className="hover:text-coral">v/{post.verse.slug}</Link>
+                <span>·</span>
+              </>
+            )}
+            <span>{formatTime(post.createdAt)}</span>
           </div>
         </div>
       </div>
@@ -91,6 +98,11 @@ const PostCard = ({ post }: { post: typeof mockPosts[0] }) => (
       </Button>
     </div>
 
+    {/* Title */}
+    {post.title && (
+      <h3 className="font-display font-bold text-lg mb-2">{post.title}</h3>
+    )}
+
     {/* Content */}
     <p className="text-foreground leading-relaxed mb-4">{post.content}</p>
 
@@ -98,11 +110,11 @@ const PostCard = ({ post }: { post: typeof mockPosts[0] }) => (
     <div className="flex items-center gap-4 pt-2 border-t border-border">
       <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-coral gap-2">
         <Heart className="w-4 h-4" />
-        {post.likes}
+        {post.voteCount}
       </Button>
       <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-violet gap-2">
         <MessageCircle className="w-4 h-4" />
-        {post.comments}
+        0
       </Button>
       <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground gap-2 ml-auto">
         <Share2 className="w-4 h-4" />
@@ -112,6 +124,31 @@ const PostCard = ({ post }: { post: typeof mockPosts[0] }) => (
 );
 
 const Explore = () => {
+  const [posts, setPosts] = useState<EnrichedPost[]>([]);
+  const [verses, setVerses] = useState<EnrichedVerse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [postsData, versesData] = await Promise.all([
+          getPosts(),
+          getVerses(),
+        ]);
+        setPosts(postsData as any);
+        setVerses(versesData as any);
+      } catch (e) {
+        console.error("Failed to load explore data:", e);
+        setError("Failed to load feed");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
   return (
     <div className="min-h-screen bg-background font-body grain">
       <Navigation />
@@ -148,14 +185,42 @@ const Explore = () => {
                 </TabsList>
 
                 <TabsContent value="trending" className="mt-6">
-                  {mockPosts.map((post) => (
-                    <PostCard key={post.id} post={post} />
-                  ))}
+                  {loading ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="w-8 h-8 animate-spin text-coral" />
+                    </div>
+                  ) : error ? (
+                    <div className="text-center py-12 text-muted-foreground">
+                      <p>{error}</p>
+                    </div>
+                  ) : posts.length === 0 ? (
+                    <div className="text-center py-12 text-muted-foreground">
+                      <Sparkles className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p>No posts yet. Be the first to post!</p>
+                    </div>
+                  ) : (
+                    posts
+                      .slice()
+                      .sort((a, b) => b.voteCount - a.voteCount)
+                      .map((post) => <PostCard key={post.id} post={post} />)
+                  )}
                 </TabsContent>
                 <TabsContent value="latest" className="mt-6">
-                  {mockPosts.slice().reverse().map((post) => (
-                    <PostCard key={post.id} post={post} />
-                  ))}
+                  {loading ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="w-8 h-8 animate-spin text-coral" />
+                    </div>
+                  ) : posts.length === 0 ? (
+                    <div className="text-center py-12 text-muted-foreground">
+                      <Sparkles className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p>No posts yet. Be the first to post!</p>
+                    </div>
+                  ) : (
+                    posts
+                      .slice()
+                      .sort((a, b) => b.createdAt - a.createdAt)
+                      .map((post) => <PostCard key={post.id} post={post} />)
+                  )}
                 </TabsContent>
                 <TabsContent value="following" className="mt-6">
                   <div className="text-center py-12 text-muted-foreground">
@@ -190,22 +255,30 @@ const Explore = () => {
                   <TrendingUp className="w-5 h-5 text-coral" />
                   <h3 className="font-display font-bold">Trending Verses</h3>
                 </div>
-                <div className="space-y-3">
-                  {trendingVerses.map((verse, idx) => (
-                    <Link 
-                      key={verse.name}
-                      to={`/v/${verse.name}`}
-                      className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors group"
-                    >
-                      <span className="text-xl">{verse.icon}</span>
-                      <div className="flex-1">
-                        <p className="font-medium group-hover:text-coral transition-colors">v/{verse.name}</p>
-                        <p className="text-sm text-muted-foreground">{verse.posts.toLocaleString()} posts</p>
-                      </div>
-                      <span className="text-xs text-muted-foreground">#{idx + 1}</span>
-                    </Link>
-                  ))}
-                </div>
+                {loading ? (
+                  <div className="flex items-center justify-center py-6">
+                    <Loader2 className="w-6 h-6 animate-spin text-coral" />
+                  </div>
+                ) : verses.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">No verses yet</p>
+                ) : (
+                  <div className="space-y-3">
+                    {verses.slice(0, 5).map((verse, idx) => (
+                      <Link 
+                        key={verse.id}
+                        to={`/v/${verse.slug}`}
+                        className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors group"
+                      >
+                        <span className="text-xl">🌐</span>
+                        <div className="flex-1">
+                          <p className="font-medium group-hover:text-coral transition-colors">v/{verse.slug}</p>
+                          <p className="text-sm text-muted-foreground truncate">{verse.description}</p>
+                        </div>
+                        <span className="text-xs text-muted-foreground">#{idx + 1}</span>
+                      </Link>
+                    ))}
+                  </div>
+                )}
               </div>
             </aside>
           </div>
