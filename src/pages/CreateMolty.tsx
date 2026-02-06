@@ -68,55 +68,87 @@ const CreateMolty = () => {
     setIsDeploying(true);
     
     try {
-      // Step 1: Provision sandbox
-      setDeployStatus("Provisioning sandbox...");
-      const provisionRes = await fetch(`${PROVISIONER_URL}/api/provision`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: user.userId,
-          moltyName: formData.name,
-          claudeApiKey: formData.apiKey,
-        }),
-      });
-
-      if (!provisionRes.ok) {
-        const error = await provisionRes.json();
-        throw new Error(error.error || "Failed to provision sandbox");
-      }
-
-      const { sandboxId, gatewayUrl, authToken } = await provisionRes.json();
+      // Get auth token from localStorage
+      const accessToken = localStorage.getItem("accessToken") || "";
       
-      // Step 2: Create molty in Convex with provisioner data
-      setDeployStatus("Registering Molty...");
-      const convexRes = await fetch(`${CONVEX_URL}/api/mutation`, {
+      // Use Convex action which calls Provisioner with service token
+      // This is the secure path: Frontend → Convex → Provisioner
+      setDeployStatus("Starting provisioning...");
+      const provisionRes = await fetch(`${CONVEX_URL}/api/action`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          path: "moltys:create",
+          path: "moltys:provision",
           args: {
-            ownerId: user.userId,
-            name: formData.name,
-            sandboxId,
-            gatewayUrl,
-            authToken,
+            userId: user.userId,
+            tokenHash: accessToken, // For auth verification
+            moltyName: formData.name,
+            apiKey: formData.apiKey,
+            personality: {
+              name: formData.name,
+              vibe: formData.personality || "helpful and friendly",
+            },
           }
         }),
       });
-      
-      const convexData = await convexRes.json();
-      if (convexData.status !== "success") {
-        throw new Error(convexData.errorMessage || "Failed to save Molty");
+
+      const provisionData = await provisionRes.json();
+      if (provisionData.status !== "success") {
+        throw new Error(provisionData.errorMessage || "Failed to provision");
       }
 
-      setCreatedMolty({ id: convexData.value?.moltyId || sandboxId, name: formData.name });
+      const { sandboxId } = provisionData.value;
       
-      toast({
-        title: "Molty created!",
-        description: `${formData.name} is now live`,
-      });
+      // Poll for completion (async provisioning)
+      setDeployStatus("Setting up sandbox...");
+      let attempts = 0;
+      const maxAttempts = 60; // 5 minutes max
       
-      setStep(4);
+      while (attempts < maxAttempts) {
+        await new Promise(r => setTimeout(r, 5000)); // 5 sec intervals
+        
+        const statusRes = await fetch(`${CONVEX_URL}/api/action`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            path: "moltys:checkProvisionStatus",
+            args: {
+              userId: user.userId,
+              tokenHash: accessToken,
+              sandboxId,
+              moltyName: formData.name,
+            }
+          }),
+        });
+        
+        const statusData = await statusRes.json();
+        if (statusData.status !== "success") {
+          throw new Error(statusData.errorMessage || "Status check failed");
+        }
+        
+        const status = statusData.value;
+        setDeployStatus(status.stageMessage || `Progress: ${status.progress || 0}%`);
+        
+        if (status.status === "running" && status.moltyId) {
+          setCreatedMolty({ id: status.moltyId.moltyId || status.moltyId, name: formData.name });
+          toast({
+            title: "Molty created!",
+            description: `${formData.name} is now live`,
+          });
+          setStep(4);
+          return;
+        }
+        
+        if (status.status === "error") {
+          throw new Error(status.error || "Provisioning failed");
+        }
+        
+        attempts++;
+      }
+      
+      throw new Error("Provisioning timed out");
+      
+      // Legacy step removed - Convex action handles both provision + create
     } catch (error) {
       console.error("Deploy error:", error);
       toast({
