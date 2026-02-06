@@ -195,6 +195,30 @@ const CreateMolty = () => {
         
         if (status.status === "running" && status.moltyId) {
           setCreatedMolty({ id: status.moltyId.moltyId || status.moltyId, name: formData.name });
+          
+          // Auto-save API key if user doesn't have one saved
+          if (!hasSavedKey && formData.apiKey && user?.userId && user?.tokenHash) {
+            try {
+              await fetch(`${CONVEX_URL}/api/mutation`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  path: "users:saveApiKey",
+                  args: { 
+                    userId: user.userId, 
+                    tokenHash: user.tokenHash, 
+                    apiKey: formData.apiKey 
+                  }
+                }),
+              });
+              setHasSavedKey(true); // Update local state
+              console.log("[CreateMolty] API key auto-saved for future use");
+            } catch (e) {
+              console.error("[CreateMolty] Failed to auto-save API key:", e);
+              // Don't block success flow if save fails
+            }
+          }
+          
           toast({
             title: "Molty created!",
             description: `${formData.name} is now live`,
