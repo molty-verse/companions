@@ -50,19 +50,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // Try stored user first for instant UI
+      // Use stored user - token verification happens on API calls
       const storedUser = getStoredUser();
       if (storedUser) {
         setUser(storedUser);
+        setIsLoading(false);
+        return;
       }
 
-      // Verify token is still valid
+      // No stored user but have token - try to verify
       try {
         const verifiedUser = await verifyToken();
         if (verifiedUser) {
           setUser(verifiedUser);
         } else {
-          // Token invalid, clear everything
           clearTokens();
           setUser(null);
         }
