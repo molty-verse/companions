@@ -59,7 +59,7 @@ export const verifyOneTimeToken = async (token: string): Promise<{
 }> => {
   console.log("[OTT] Starting verification...");
   
-  // Step 1: Verify the OTT with Better Auth (sets session cookie)
+  // Verify the OTT with Better Auth - this should return session data directly
   const response = await fetch(`${CONVEX_SITE_URL}/api/auth/cross-domain/one-time-token/verify`, {
     method: "POST",
     headers: {
@@ -75,31 +75,51 @@ export const verifyOneTimeToken = async (token: string): Promise<{
     throw new Error("Failed to verify one-time token");
   }
   
-  console.log("[OTT] Token verified, fetching session...");
+  // The OTT verify response should contain the session directly
+  const data = await response.json();
+  console.log("[OTT] Verify response:", data);
   
-  // Step 2: Get session from Better Auth (now that cookie is set)
+  // Try to get user from the verify response first
+  if (data?.user) {
+    console.log("[OTT] Got user from verify response");
+    return {
+      userId: data.user.id,
+      username: data.user.name || data.user.email?.split("@")[0] || "User",
+      email: data.user.email || "",
+    };
+  }
+  
+  // If not in response, try session endpoint (might fail due to cookies)
+  console.log("[OTT] Token verified, trying get-session...");
+  
   const sessionResponse = await fetch(`${CONVEX_SITE_URL}/api/auth/get-session`, {
     method: "GET",
     credentials: "include",
   });
   
-  if (!sessionResponse.ok) {
-    console.error("[OTT] Failed to get session");
-    throw new Error("Failed to get session after OAuth");
+  if (sessionResponse.ok) {
+    const session = await sessionResponse.json();
+    console.log("[OTT] Session data:", session);
+    
+    if (session?.user) {
+      return {
+        userId: session.user.id,
+        username: session.user.name || session.user.email?.split("@")[0] || "User",
+        email: session.user.email || "",
+      };
+    }
   }
   
-  const session = await sessionResponse.json();
-  console.log("[OTT] Session data:", session);
-  
-  if (!session?.user) {
-    console.error("[OTT] No user in session");
-    throw new Error("No user data in session");
+  // Last resort: check if data has session nested
+  if (data?.session?.user) {
+    console.log("[OTT] Got user from nested session");
+    return {
+      userId: data.session.user.id,
+      username: data.session.user.name || data.session.user.email?.split("@")[0] || "User",
+      email: data.session.user.email || "",
+    };
   }
   
-  // Return user data - the caller (AuthCallback) will handle storage
-  return {
-    userId: session.user.id,
-    username: session.user.name || session.user.email?.split("@")[0] || "User",
-    email: session.user.email || "",
-  };
+  console.error("[OTT] No user in any response. Full data:", JSON.stringify(data));
+  throw new Error("No user data in session - check console for response structure");
 };
