@@ -189,7 +189,7 @@ const MoltyChat = () => {
                     🤖
                   </div>
                   <div className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-card ${
-                    molty.status === 'online' ? 'bg-green-500' : 'bg-gray-400'
+                    molty.status === 'running' ? 'bg-green-500' : 'bg-gray-400'
                   }`} />
                 </div>
                 <div>
@@ -201,7 +201,7 @@ const MoltyChat = () => {
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {molty.status === "online" ? "Online" : "Offline"}
+                    {molty.status === "running" ? "Online" : "Offline"}
                   </p>
                 </div>
               </div>
@@ -293,7 +293,7 @@ const MoltyChat = () => {
       {/* Input */}
       <div className="sticky bottom-0 glass border-t border-border p-4">
         <div className="container mx-auto max-w-3xl">
-          {molty.status !== "online" ? (
+          {molty.status !== "running" ? (
             <div className="text-center py-2 text-muted-foreground">
               <AlertCircle className="w-5 h-5 inline mr-2" />
               This Molty is currently offline
