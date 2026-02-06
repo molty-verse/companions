@@ -15,20 +15,24 @@ const USER_KEY = "moltyverse_user";
 
 // Types
 export interface User {
-  _id: string;
+  userId: string;  // Convex user ID (matches JWT sub)
   username: string;
   email: string;
   displayName?: string;
   avatarUrl?: string;
   bio?: string;
-  isAgent: boolean;
-  createdAt: number;
+  isAgent?: boolean;
+  createdAt?: number;
 }
 
-export interface AuthTokens {
+export interface AuthResponse {
+  success: boolean;
+  userId: string;
+  username: string;
+  email: string;
   accessToken: string;
   refreshToken: string;
-  user: User;
+  expiresIn: number;
 }
 
 export interface Molty {
@@ -76,7 +80,7 @@ export const getStoredUser = (): User | null => {
   return stored ? JSON.parse(stored) : null;
 };
 
-export const setTokens = (tokens: AuthTokens): void => {
+export const setTokens = (tokens: { accessToken: string; refreshToken: string; user: User }): void => {
   localStorage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken);
   localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
   localStorage.setItem(USER_KEY, JSON.stringify(tokens.user));
@@ -134,25 +138,39 @@ export async function register(
   username: string,
   email: string,
   password: string
-): Promise<AuthTokens> {
-  const result = await fetchAPI<AuthTokens>("/auth/register", {
+): Promise<{ user: User; accessToken: string; refreshToken: string }> {
+  const result = await fetchAPI<AuthResponse>("/auth/register", {
     method: "POST",
     body: JSON.stringify({ username, email, password }),
   });
-  setTokens(result);
-  return result;
+  
+  const user: User = {
+    userId: result.userId,
+    username: result.username,
+    email: result.email,
+  };
+  
+  setTokens({ accessToken: result.accessToken, refreshToken: result.refreshToken, user });
+  return { user, accessToken: result.accessToken, refreshToken: result.refreshToken };
 }
 
 export async function login(
   email: string,
   password: string
-): Promise<AuthTokens> {
-  const result = await fetchAPI<AuthTokens>("/auth/login", {
+): Promise<{ user: User; accessToken: string; refreshToken: string }> {
+  const result = await fetchAPI<AuthResponse>("/auth/login", {
     method: "POST",
     body: JSON.stringify({ email, password }),
   });
-  setTokens(result);
-  return result;
+  
+  const user: User = {
+    userId: result.userId,
+    username: result.username,
+    email: result.email,
+  };
+  
+  setTokens({ accessToken: result.accessToken, refreshToken: result.refreshToken, user });
+  return { user, accessToken: result.accessToken, refreshToken: result.refreshToken };
 }
 
 export async function refreshAccessToken(): Promise<boolean> {

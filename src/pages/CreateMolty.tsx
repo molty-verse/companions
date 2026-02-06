@@ -71,7 +71,7 @@ const CreateMolty = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId: user._id,
+          userId: user.userId,
           moltyName: formData.name,
           claudeApiKey: formData.apiKey,
         }),
@@ -87,7 +87,7 @@ const CreateMolty = () => {
       // Step 2: Create molty in Convex with provisioner data
       setDeployStatus("Registering Molty...");
       const molty = await createMolty({
-        ownerId: user._id,
+        ownerId: user.userId,
         name: formData.name,
         sandboxId,
         gatewayUrl,
