@@ -219,9 +219,11 @@ const MoltyChat = () => {
               <Button variant="ghost" size="icon" className="rounded-xl">
                 <Share2 className="w-4 h-4" />
               </Button>
-              <Button variant="ghost" size="icon" className="rounded-xl">
-                <Settings className="w-4 h-4" />
-              </Button>
+              <Link to={`/m/${moltyId}/settings`}>
+                <Button variant="ghost" size="icon" className="rounded-xl">
+                  <Settings className="w-4 h-4" />
+                </Button>
+              </Link>
             </div>
           </div>
         </div>

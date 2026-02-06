@@ -13,6 +13,7 @@ import Dashboard from "./pages/Dashboard";
 import UserProfile from "./pages/UserProfile";
 import VerseDetail from "./pages/VerseDetail";
 import MoltyChat from "./pages/MoltyChat";
+import MoltySettings from "./pages/MoltySettings";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
@@ -35,6 +36,7 @@ const App = () => (
             <Route path="/u/:username" element={<UserProfile />} />
             <Route path="/v/:slug" element={<VerseDetail />} />
             <Route path="/m/:moltyId" element={<MoltyChat />} />
+            <Route path="/m/:moltyId/settings" element={<MoltySettings />} />
             <Route path="/settings" element={<Settings />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
