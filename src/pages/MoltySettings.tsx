@@ -11,7 +11,15 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
-import { ArrowLeft, Save, Bot, Brain, Wrench, Shield, Loader2 } from "lucide-react";
+import { ArrowLeft, Save, Bot, Brain, Wrench, Shield, Loader2, Trash2, AlertTriangle } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import Navigation from "@/components/Navigation";
 import { ConvexHttpClient } from "convex/browser";
 
@@ -72,6 +80,11 @@ const MoltySettings = () => {
   const [fileOps, setFileOps] = useState(true);
   const [codeExec, setCodeExec] = useState(false);
   const [browser, setBrowser] = useState(false);
+  
+  // Delete modal state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
@@ -183,6 +196,51 @@ const MoltySettings = () => {
       });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!molty || !user) return;
+    
+    // Verify the confirmation text matches the Molty name
+    if (deleteConfirmText !== molty.name) {
+      toast({
+        title: "Confirmation failed",
+        description: `Please type "${molty.name}" exactly to confirm deletion.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setDeleting(true);
+    
+    try {
+      // Call the delete action
+      await convex.action("moltys:deleteMolty" as any, {
+        userId: user.id,
+        tokenHash: user.tokenHash || "",
+        moltyId: molty.id,
+        confirmName: deleteConfirmText,
+      });
+      
+      toast({
+        title: "Molty deleted",
+        description: `"${molty.name}" has been permanently deleted.`,
+      });
+      
+      // Navigate back to dashboard
+      navigate("/dashboard");
+    } catch (error: any) {
+      console.error("Failed to delete Molty:", error);
+      toast({
+        title: "Delete failed",
+        description: error.message || "Failed to delete Molty. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleting(false);
+      setShowDeleteModal(false);
+      setDeleteConfirmText("");
     }
   };
 
@@ -450,12 +508,20 @@ const MoltySettings = () => {
 
                 <Separator />
 
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                  <h4 className="font-medium text-amber-800 mb-1">⚠️ Danger Zone</h4>
-                  <p className="text-sm text-amber-700 mb-3">
-                    These actions cannot be undone.
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <h4 className="font-medium text-red-800 mb-1 flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4" />
+                    Danger Zone
+                  </h4>
+                  <p className="text-sm text-red-700 mb-3">
+                    This action is permanent and cannot be undone.
                   </p>
-                  <Button variant="destructive" size="sm" disabled>
+                  <Button 
+                    variant="destructive" 
+                    size="sm"
+                    onClick={() => setShowDeleteModal(true)}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
                     Delete Molty
                   </Button>
                 </div>
@@ -464,6 +530,74 @@ const MoltySettings = () => {
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* Delete Confirmation Modal */}
+      <Dialog open={showDeleteModal} onOpenChange={setShowDeleteModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="w-5 h-5" />
+              Delete Molty Permanently
+            </DialogTitle>
+            <DialogDescription className="text-left">
+              This action <strong>cannot be undone</strong>. This will permanently delete 
+              your Molty <strong>"{molty?.name}"</strong> and all associated data.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+              <p className="text-sm text-red-800">
+                ⚠️ Your Molty's sandbox, configuration, and chat history will be permanently deleted.
+              </p>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="confirm-delete">
+                Type <strong>{molty?.name}</strong> to confirm:
+              </Label>
+              <Input
+                id="confirm-delete"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder={molty?.name || ""}
+                className="border-red-200 focus:border-red-400 focus:ring-red-400"
+                disabled={deleting}
+              />
+            </div>
+          </div>
+          
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowDeleteModal(false);
+                setDeleteConfirmText("");
+              }}
+              disabled={deleting}
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={deleting || deleteConfirmText !== molty?.name}
+            >
+              {deleting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete Permanently
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
