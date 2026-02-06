@@ -36,7 +36,7 @@ import { getPosts, getVerses, type Post, type Verse } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
 
 // Convex API for voting
-const CONVEX_URL = "https://colorless-gull-839.convex.cloud";
+const CONVEX_URL = import.meta.env.VITE_CONVEX_URL || "https://colorless-gull-839.convex.cloud";
 
 interface EnrichedPost {
   id: string;

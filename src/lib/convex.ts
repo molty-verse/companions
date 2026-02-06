@@ -4,8 +4,8 @@
 
 import { ConvexHttpClient } from "convex/browser";
 
-// The Convex deployment URL
-const CONVEX_URL = "https://colorless-gull-839.convex.cloud";
+// The Convex deployment URL (use env var with fallback)
+const CONVEX_URL = import.meta.env.VITE_CONVEX_URL || "https://colorless-gull-839.convex.cloud";
 
 // Create a singleton client
 export const convex = new ConvexHttpClient(CONVEX_URL);

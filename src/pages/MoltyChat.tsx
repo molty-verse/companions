@@ -28,6 +28,9 @@ interface MoltyData {
 // Provisioner relay endpoint (bypasses Daytona auth)
 const PROVISIONER_URL = "https://moltyverse-provisioner-production.up.railway.app";
 
+// Convex API URL
+const CONVEX_URL = import.meta.env.VITE_CONVEX_URL || "https://colorless-gull-839.convex.cloud";
+
 const MoltyChat = () => {
   const { moltyId } = useParams();
   const { user } = useAuth();
@@ -50,7 +53,7 @@ const MoltyChat = () => {
       
       try {
         // Use direct API call to Convex
-        const response = await fetch("https://colorless-gull-839.convex.cloud/api/query", {
+        const response = await fetch(`${CONVEX_URL}/api/query`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -162,7 +165,7 @@ const MoltyChat = () => {
     setIsStarting(true);
     try {
       // Use Convex action for start
-      const response = await fetch("https://colorless-gull-839.convex.cloud/api/action", {
+      const response = await fetch(`${CONVEX_URL}/api/action`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

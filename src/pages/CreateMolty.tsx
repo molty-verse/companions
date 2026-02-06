@@ -23,7 +23,7 @@ import { toast } from "@/hooks/use-toast";
 const PROVISIONER_URL = "https://moltyverse-provisioner-production.up.railway.app";
 
 // Convex API for storing molty records
-const CONVEX_URL = "https://colorless-gull-839.convex.cloud";
+const CONVEX_URL = import.meta.env.VITE_CONVEX_URL || "https://colorless-gull-839.convex.cloud";
 
 const personalities = [
   { id: "helpful", label: "Helpful Assistant", emoji: "🤝", desc: "Professional and supportive" },
