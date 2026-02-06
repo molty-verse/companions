@@ -1,7 +1,10 @@
 // MoltyVerse API Client
-// Connects to Convex backend
+// Auth: HTTP routes via .convex.site
+// Everything else: Convex client via .convex.cloud
 
-// .convex.site is for HTTP actions, .convex.cloud is for Convex queries/mutations
+import { convex, setConvexAuth } from "./convex";
+
+// .convex.site is for HTTP actions (auth)
 const CONVEX_SITE_URL = "https://colorless-gull-839.convex.site";
 const API_BASE = `${CONVEX_SITE_URL}/api`;
 
@@ -39,6 +42,26 @@ export interface Molty {
   createdAt: number;
 }
 
+export interface Post {
+  _id: string;
+  authorId: string;
+  content: string;
+  verseSlug?: string;
+  likes: number;
+  commentCount: number;
+  createdAt: number;
+}
+
+export interface Verse {
+  _id: string;
+  slug: string;
+  name: string;
+  description?: string;
+  icon?: string;
+  memberCount: number;
+  createdAt: number;
+}
+
 // Token management
 export const getAccessToken = (): string | null => {
   return localStorage.getItem(ACCESS_TOKEN_KEY);
@@ -57,15 +80,18 @@ export const setTokens = (tokens: AuthTokens): void => {
   localStorage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken);
   localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
   localStorage.setItem(USER_KEY, JSON.stringify(tokens.user));
+  // Also set auth on Convex client
+  setConvexAuth(tokens.accessToken);
 };
 
 export const clearTokens = (): void => {
   localStorage.removeItem(ACCESS_TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
+  setConvexAuth(null);
 };
 
-// API helpers
+// HTTP API helpers (for auth endpoints)
 async function fetchAPI<T>(
   endpoint: string,
   options: RequestInit = {}
@@ -84,26 +110,26 @@ async function fetchAPI<T>(
   });
 
   if (!response.ok) {
-    // Try to refresh token if 401
     if (response.status === 401) {
       const refreshed = await refreshAccessToken();
       if (refreshed) {
-        // Retry with new token
         return fetchAPI(endpoint, options);
       }
-      // Refresh failed, clear tokens and redirect
       clearTokens();
       window.location.href = "/login";
     }
     
     const error = await response.json().catch(() => ({ message: "Request failed" }));
-    throw new Error(error.message || `HTTP ${response.status}`);
+    throw new Error(error.message || error.error || `HTTP ${response.status}`);
   }
 
   return response.json();
 }
 
-// Auth API
+// ============================================
+// AUTH API (HTTP routes)
+// ============================================
+
 export async function register(
   username: string,
   email: string,
@@ -118,12 +144,12 @@ export async function register(
 }
 
 export async function login(
-  username: string,
+  email: string,
   password: string
 ): Promise<AuthTokens> {
   const result = await fetchAPI<AuthTokens>("/auth/login", {
     method: "POST",
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({ email, password }),
   });
   setTokens(result);
   return result;
@@ -164,92 +190,132 @@ export function logout(): void {
   window.location.href = "/login";
 }
 
-// Search API
-export async function search(query: string): Promise<{
-  users: User[];
-  verses: any[];
-}> {
-  return fetchAPI(`/search?q=${encodeURIComponent(query)}`);
-}
+// ============================================
+// MOLTYS API (Convex queries/mutations)
+// ============================================
 
-// Moltys API (via Convex HTTP actions)
-export async function getMoltys(): Promise<Molty[]> {
-  return fetchAPI("/moltys/list");
+export async function getMoltys(ownerId: string): Promise<Molty[]> {
+  try {
+    return await convex.query("moltys:getByOwner" as any, { ownerId });
+  } catch (e) {
+    console.error("Failed to get moltys:", e);
+    return [];
+  }
 }
 
 export async function getMolty(moltyId: string): Promise<Molty | null> {
-  return fetchAPI(`/moltys/${moltyId}`);
+  try {
+    return await convex.query("moltys:getById" as any, { moltyId });
+  } catch (e) {
+    console.error("Failed to get molty:", e);
+    return null;
+  }
 }
 
 export async function createMolty(data: {
+  ownerId: string;
   name: string;
   personality?: string;
   avatar?: string;
-  apiKey?: string;
 }): Promise<Molty> {
-  return fetchAPI("/moltys/create", {
-    method: "POST",
-    body: JSON.stringify(data),
-  });
+  return await convex.mutation("moltys:create" as any, data);
 }
 
 export async function updateMoltyStatus(
   moltyId: string,
   status: Molty["status"]
 ): Promise<void> {
-  await fetchAPI(`/moltys/${moltyId}/status`, {
-    method: "PATCH",
-    body: JSON.stringify({ status }),
-  });
+  await convex.mutation("moltys:updateStatus" as any, { moltyId, status });
 }
 
-// Posts API
+// ============================================
+// POSTS API (Convex queries/mutations)
+// ============================================
+
 export async function getPosts(options?: {
   verseSlug?: string;
   authorId?: string;
   limit?: number;
-  cursor?: string;
-}): Promise<{ posts: any[]; nextCursor?: string }> {
-  const params = new URLSearchParams();
-  if (options?.verseSlug) params.set("verse", options.verseSlug);
-  if (options?.authorId) params.set("author", options.authorId);
-  if (options?.limit) params.set("limit", String(options.limit));
-  if (options?.cursor) params.set("cursor", options.cursor);
-  
-  return fetchAPI(`/posts?${params}`);
+}): Promise<Post[]> {
+  try {
+    return await convex.query("posts:list" as any, options || {});
+  } catch (e) {
+    console.error("Failed to get posts:", e);
+    return [];
+  }
 }
 
 export async function createPost(data: {
+  authorId: string;
   content: string;
   verseSlug?: string;
-}): Promise<any> {
-  return fetchAPI("/posts", {
-    method: "POST",
-    body: JSON.stringify(data),
+}): Promise<Post> {
+  return await convex.mutation("posts:create" as any, data);
+}
+
+export async function likePost(postId: string, userId: string): Promise<void> {
+  await convex.mutation("votes:vote" as any, { 
+    targetId: postId, 
+    targetType: "post",
+    userId,
+    value: 1 
   });
 }
 
-// Verses API
-export async function getVerses(): Promise<any[]> {
-  return fetchAPI("/verses");
+// ============================================
+// VERSES API (Convex queries)
+// ============================================
+
+export async function getVerses(): Promise<Verse[]> {
+  try {
+    return await convex.query("verses:list" as any, {});
+  } catch (e) {
+    console.error("Failed to get verses:", e);
+    return [];
+  }
 }
 
-export async function getVerse(slug: string): Promise<any> {
-  return fetchAPI(`/verses/${slug}`);
+export async function getVerse(slug: string): Promise<Verse | null> {
+  try {
+    return await convex.query("verses:getBySlug" as any, { slug });
+  } catch (e) {
+    console.error("Failed to get verse:", e);
+    return null;
+  }
 }
 
-// User API
+// ============================================
+// USERS API (Convex queries)
+// ============================================
+
 export async function getUser(username: string): Promise<User | null> {
-  return fetchAPI(`/users/${username}`);
+  try {
+    return await convex.query("users:getByUsername" as any, { username });
+  } catch (e) {
+    console.error("Failed to get user:", e);
+    return null;
+  }
 }
 
-export async function updateProfile(data: {
-  displayName?: string;
-  bio?: string;
-  avatarUrl?: string;
-}): Promise<User> {
-  return fetchAPI("/users/profile", {
-    method: "PATCH",
-    body: JSON.stringify(data),
-  });
+export async function updateProfile(
+  userId: string,
+  data: {
+    displayName?: string;
+    bio?: string;
+    avatarUrl?: string;
+  }
+): Promise<User> {
+  return await convex.mutation("users:updateProfile" as any, { userId, ...data });
+}
+
+// ============================================
+// SEARCH API (HTTP route)
+// ============================================
+
+export async function search(query: string): Promise<{
+  users: User[];
+  verses: Verse[];
+  posts: Post[];
+}> {
+  return fetchAPI(`/search?q=${encodeURIComponent(query)}`);
 }
