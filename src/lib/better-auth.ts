@@ -6,12 +6,16 @@
  */
 
 import { createAuthClient } from "better-auth/react";
+import { crossDomainClient } from "@convex-dev/better-auth/client/plugins";
 
 // Convex site URL for auth endpoints
 const CONVEX_SITE_URL = import.meta.env.VITE_CONVEX_SITE_URL || "https://colorless-gull-839.convex.site";
 
 export const authClient = createAuthClient({
   baseURL: CONVEX_SITE_URL,
+  plugins: [
+    crossDomainClient(),
+  ],
 });
 
 // Export specific methods for convenience
