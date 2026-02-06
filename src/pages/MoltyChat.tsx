@@ -55,6 +55,8 @@ const MoltyChat = () => {
         
         const data = await response.json();
         
+        console.log("Convex response for moltyId", moltyId, ":", data);
+        
         if (data.status === "success" && data.value) {
           setMolty(data.value);
           // Add welcome message
@@ -65,7 +67,8 @@ const MoltyChat = () => {
             timestamp: "Just now"
           }]);
         } else {
-          setError("Molty not found");
+          console.error("Molty fetch failed:", data.errorMessage || "No value returned");
+          setError(`Molty not found (ID: ${moltyId})`);
         }
       } catch (e) {
         console.error("Failed to fetch molty:", e);

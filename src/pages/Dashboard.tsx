@@ -114,7 +114,10 @@ const Dashboard = () => {
       
       const data = await response.json();
       
+      console.log("Dashboard moltys response:", data);
+      
       if (data.status === "success") {
+        console.log("Loaded moltys:", data.value);
         setMoltys(data.value || []);
       } else {
         console.error("Convex error:", data.errorMessage);
