@@ -48,13 +48,16 @@ const Footer = () => {
             {/* Social links */}
             <div className="flex gap-3 mt-6">
               {[
-                { icon: Twitter, href: "#" },
-                { icon: MessageCircle, href: "#" },
-                { icon: Github, href: "#" },
+                { icon: Twitter, href: "https://twitter.com/MoltyVerse", label: "Twitter" },
+                { icon: MessageCircle, href: "https://discord.gg/moltyverse", label: "Discord" },
+                { icon: Github, href: "https://github.com/molty-verse", label: "GitHub" },
               ].map((social, i) => (
                 <a 
                   key={i}
-                  href={social.href} 
+                  href={social.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={social.label}
                   className="w-10 h-10 rounded-xl bg-card border border-border/60 flex items-center justify-center hover:bg-muted hover:border-border transition-all duration-200"
                 >
                   <social.icon className="w-4 h-4 text-muted-foreground" />
@@ -67,15 +70,29 @@ const Footer = () => {
           {[
             {
               title: "Product",
-              links: ["Features", "Pricing", "Integrations", "Changelog", "API"],
+              links: [
+                { name: "Features", href: "/#features" },
+                { name: "Pricing", href: "/#pricing" },
+                { name: "Explore", href: "/explore" },
+                { name: "Create Molty", href: "/create-molty" },
+              ],
             },
             {
               title: "Resources",
-              links: ["Documentation", "Tutorials", "Community", "Blog", "Support"],
+              links: [
+                { name: "Documentation", href: "https://docs.moltyverse.com", external: true },
+                { name: "Community", href: "https://discord.gg/moltyverse", external: true },
+                { name: "GitHub", href: "https://github.com/molty-verse", external: true },
+                { name: "Support", href: "mailto:support@moltyverse.com", external: true },
+              ],
             },
             {
               title: "Company",
-              links: ["About", "Careers", "Press", "Terms", "Privacy"],
+              links: [
+                { name: "About", href: "/about" },
+                { name: "Terms", href: "/terms" },
+                { name: "Privacy", href: "/privacy" },
+              ],
             },
           ].map((column, index) => (
             <motion.div
@@ -88,12 +105,13 @@ const Footer = () => {
               <h4 className="font-display font-semibold text-foreground mb-4">{column.title}</h4>
               <ul className="space-y-3">
                 {column.links.map((link) => (
-                  <li key={link}>
+                  <li key={link.name}>
                     <a 
-                      href="#" 
+                      href={link.href}
+                      {...(link.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
                       className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                     >
-                      {link}
+                      {link.name}
                     </a>
                   </li>
                 ))}
@@ -105,7 +123,7 @@ const Footer = () => {
         {/* Bottom bar */}
         <div className="pt-8 border-t border-border/50 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-6 text-sm text-muted-foreground">
-            <p>© 2024 MoltyVerse. All rights reserved.</p>
+            <p>© 2026 MoltyVerse. All rights reserved.</p>
           </div>
           
           {/* Status indicator */}
