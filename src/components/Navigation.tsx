@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { Menu, User, LogOut, LayoutDashboard, Settings, Bot } from "lucide-react";
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import {
   DropdownMenu,
@@ -22,8 +22,24 @@ const navLinks = [
 const Navigation = () => {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const { user, isAuthenticated, logout } = useAuth();
   const isHome = location.pathname === "/";
+
+  // Handle anchor links without full page reload
+  const handleAnchorClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    e.preventDefault();
+    const anchor = href.replace("/#", "#");
+    
+    if (isHome) {
+      // Already on home, just scroll
+      const element = document.querySelector(anchor);
+      element?.scrollIntoView({ behavior: "smooth" });
+    } else {
+      // Navigate to home then scroll (React Router handles this)
+      navigate("/" + anchor);
+    }
+  };
 
   return (
     <motion.nav 
@@ -54,8 +70,9 @@ const Navigation = () => {
                   link.href.startsWith("/#") ? (
                     <a 
                       key={link.href}
-                      href={isHome ? link.href.replace("/", "") : link.href}
-                      className="nav-link font-medium"
+                      href={link.href}
+                      onClick={(e) => handleAnchorClick(e, link.href)}
+                      className="nav-link font-medium cursor-pointer"
                     >
                       {link.label}
                     </a>
@@ -145,8 +162,8 @@ const Navigation = () => {
                           <a
                             key={link.href}
                             href={link.href}
-                            onClick={() => setIsOpen(false)}
-                            className="px-4 py-3 rounded-xl text-foreground font-medium hover:bg-muted transition-colors"
+                            onClick={(e) => { handleAnchorClick(e, link.href); setIsOpen(false); }}
+                            className="px-4 py-3 rounded-xl text-foreground font-medium hover:bg-muted transition-colors cursor-pointer"
                           >
                             {link.label}
                           </a>
