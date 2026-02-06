@@ -68,8 +68,8 @@ const CreateMolty = () => {
     setIsDeploying(true);
     
     try {
-      // Get auth token from localStorage
-      const accessToken = localStorage.getItem("accessToken") || "";
+      // Get auth token from localStorage (key from api.ts)
+      const accessToken = localStorage.getItem("moltyverse_access_token") || "";
       
       // Use Convex action which calls Provisioner with service token
       // This is the secure path: Frontend → Convex → Provisioner
