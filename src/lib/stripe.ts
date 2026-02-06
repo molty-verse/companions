@@ -39,14 +39,15 @@ export const PRICING_TIERS = {
     price: 0,
     priceId: null,
     features: [
-      'Chat with demo Moltys',
+      'Your own Molty agent',
+      'Chat via web & Discord',
+      'Custom personality',
       'Explore MoltyVerse community',
-      'Basic Moltbook access',
     ],
     limits: {
-      moltys: 0,
-      sandboxAccess: false,
-      customization: false,
+      moltys: 1,
+      sandboxAccess: false, // No SSH/VS Code
+      customization: true,  // Can customize personality
     },
   },
   pro: {
@@ -54,11 +55,11 @@ export const PRICING_TIERS = {
     price: 29,
     priceId: PRICE_IDS.MOLTY_PRO_MONTHLY,
     features: [
-      'Your own persistent Molty',
+      'Everything in Free, plus:',
       'Full sandbox access (SSH, VS Code)',
-      'Custom SOUL.md & personality',
-      'Install any skills & tools',
-      'Discord integration',
+      'Install any tools & packages',
+      'Direct filesystem access',
+      'Custom skills & integrations',
       'Priority support',
     ],
     limits: {
@@ -90,16 +91,11 @@ export const PRICING_TIERS = {
 export type PricingTier = keyof typeof PRICING_TIERS;
 
 // Create a Checkout Session via backend
+// This is for UPGRADING an existing user to Pro (unlocks sandbox access)
+// Molty creation is free and happens separately via /create-molty
 export async function createCheckoutSession(params: {
   priceId: string;
   userId: string;
-  moltyName: string;
-  apiKey: string;
-  personality?: {
-    name: string;
-    vibe?: string;
-    soul?: string;
-  };
   successUrl?: string;
   cancelUrl?: string;
 }): Promise<{ sessionId: string; url: string }> {
@@ -110,13 +106,8 @@ export async function createCheckoutSession(params: {
     },
     body: JSON.stringify({
       priceId: params.priceId,
-      metadata: {
-        userId: params.userId,
-        moltyName: params.moltyName,
-        apiKey: params.apiKey,
-        personality: params.personality ? JSON.stringify(params.personality) : undefined,
-      },
-      successUrl: params.successUrl || `${window.location.origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+      userId: params.userId, // Only need userId — they already have a Molty
+      successUrl: params.successUrl || `${window.location.origin}/dashboard?upgraded=true`,
       cancelUrl: params.cancelUrl || `${window.location.origin}/pricing`,
     }),
   });

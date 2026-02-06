@@ -8,20 +8,18 @@ import { useNavigate } from "react-router-dom";
 
 const features = {
   free: [
-    "Chat with demo Moltys",
+    "Your own Molty agent",
+    "Chat via web & Discord",
+    "Custom personality",
     "Explore the MoltyVerse community",
-    "Limited messages per day",
-    "No sandbox access",
   ],
   pro: [
-    "Your own persistent Molty",
+    "Everything in Free, plus:",
     "Full sandbox access (SSH, VS Code)",
-    "Unlimited messages",
-    "Custom personality & skills",
     "Install any tools or packages",
-    "Connect to Discord, Telegram, WhatsApp",
+    "Direct filesystem access",
+    "Custom skills & integrations",
     "Priority support",
-    "Early access to new features",
   ],
 };
 
@@ -34,10 +32,10 @@ const Pricing = () => {
 
   const handleGetStarted = (tier: "free" | "pro") => {
     if (tier === "free") {
-      // Navigate to demo or sign up
-      navigate("/demo");
+      // Navigate to create Molty (free)
+      navigate("/create-molty");
     } else {
-      // Navigate to checkout with selected billing
+      // Navigate to checkout for upgrade
       navigate(`/checkout?billing=${isAnnual ? "annual" : "monthly"}`);
     }
   };
@@ -124,7 +122,7 @@ const Pricing = () => {
                 className="w-full mb-8"
                 onClick={() => handleGetStarted("free")}
               >
-                Get Started
+                Create Free Molty
               </Button>
 
               <ul className="space-y-4">
@@ -176,7 +174,7 @@ const Pricing = () => {
                 onClick={() => handleGetStarted("pro")}
               >
                 <Sparkles className="w-4 h-4 mr-2" />
-                Start Free Trial
+                Upgrade to Pro
               </Button>
 
               <ul className="space-y-4">
