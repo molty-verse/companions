@@ -19,9 +19,13 @@ interface MoltyData {
   id: string;
   name: string;
   status: string;
+  sandboxId: string;
   gatewayUrl: string;
   authToken: string;
 }
+
+// Provisioner relay endpoint (bypasses Daytona auth)
+const PROVISIONER_URL = "https://moltyverse-provisioner-production.up.railway.app";
 
 const MoltyChat = () => {
   const { moltyId } = useParams();
@@ -101,18 +105,20 @@ const MoltyChat = () => {
     setIsSending(true);
 
     try {
-      // Call the OpenClaw gateway
-      const response = await fetch(`${molty.gatewayUrl}/api/message`, {
+      // Use Provisioner relay to bypass Daytona auth
+      // Relay executes curl inside the sandbox via Daytona SDK
+      const response = await fetch(`${PROVISIONER_URL}/api/relay/${molty.sandboxId}/api/message`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${molty.authToken}`,
+          "X-Gateway-Token": molty.authToken,
         },
         body: JSON.stringify({ message: input }),
       });
 
       if (!response.ok) {
-        throw new Error(`Gateway error: ${response.status}`);
+        const errorText = await response.text();
+        throw new Error(`Gateway error: ${response.status} - ${errorText}`);
       }
 
       const data = await response.json();
@@ -120,7 +126,7 @@ const MoltyChat = () => {
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: data.response || data.message || "I received your message but couldn't generate a response.",
+        content: data.response || data.message || data.content || "I received your message but couldn't generate a response.",
         timestamp: "Just now"
       };
 
