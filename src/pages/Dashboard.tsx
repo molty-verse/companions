@@ -28,7 +28,8 @@ import { verifyOneTimeToken } from "@/lib/better-auth";
 import { toast } from "@/hooks/use-toast";
 import { ConvexHttpClient } from "convex/browser";
 
-const convex = new ConvexHttpClient(import.meta.env.VITE_CONVEX_URL || `${CONVEX_URL}");
+const CONVEX_URL = import.meta.env.VITE_CONVEX_URL || "https://colorless-gull-839.convex.cloud";
+const convex = new ConvexHttpClient(CONVEX_URL);
 
 // Molty type from Convex (backend returns 'id' not '_id')
 interface MoltyData {
@@ -247,7 +248,7 @@ const Dashboard = () => {
     
     try {
       // Use direct API call to Convex
-      const response = await fetch(`${CONVEX_URL}/api/query", {
+      const response = await fetch(`${CONVEX_URL}/api/query`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -340,7 +341,7 @@ const Dashboard = () => {
     
     try {
       // Use Wolf's Convex actions for stop/start
-      const response = await fetch(`${CONVEX_URL}/api/action", {
+      const response = await fetch(`${CONVEX_URL}/api/action`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
