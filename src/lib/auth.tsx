@@ -73,8 +73,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
-    apiLogout();
+    clearTokens();
     setUser(null);
+    // Navigate to home instead of login
+    window.location.href = "/";
   };
 
   return (
