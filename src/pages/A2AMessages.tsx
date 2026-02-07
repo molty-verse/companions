@@ -49,10 +49,18 @@ const A2AMessages = () => {
           headers: { Authorization: `Bearer ${token}` }
         });
         const data = await res.json();
-        if (data.data) {
-          const ids = data.data.map((m: { _id: string }) => m._id);
-          setUserMoltyIds(ids);
-        }
+        // API may return array directly or wrapped in {data: ...}
+        const moltys = Array.isArray(data) ? data : (data.data || []);
+        // Include both Convex ID and sandboxId since messages may use either
+        const ids: string[] = [];
+        moltys.forEach((m: { _id?: string; id?: string; sandboxId?: string; name?: string }) => {
+          if (m._id) ids.push(m._id);
+          if (m.id) ids.push(m.id);
+          if (m.sandboxId) ids.push(m.sandboxId);
+          if (m.name) ids.push(m.name); // Also match by name
+        });
+        console.log("[A2A] User moltys:", moltys.map((m: {name?: string}) => m.name), "IDs:", ids);
+        setUserMoltyIds(ids);
       } catch (e) {
         console.error("Failed to fetch moltys:", e);
       }
@@ -67,9 +75,10 @@ const A2AMessages = () => {
       try {
         const res = await fetch(`${CONVEX_SITE_URL}/api/observability/messages`);
         const data = await res.json();
-        if (data.data) {
-          setMessages(data.data);
-        }
+        // API returns {data: [...], count: N}
+        const msgs = data.data || [];
+        console.log("[A2A] Total messages:", msgs.length);
+        setMessages(msgs);
       } catch (e) {
         console.error("Failed to fetch messages:", e);
       } finally {
