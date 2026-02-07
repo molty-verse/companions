@@ -22,7 +22,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { motion } from "framer-motion";
-import { Plus, Settings, MessageCircle, Bot, Zap, Clock, TrendingUp, MoreVertical, Power, Loader2, RefreshCw, CreditCard, Trash2 } from "lucide-react";
+import { Plus, Settings, MessageCircle, Bot, Zap, Clock, TrendingUp, MoreVertical, Power, Loader2, RefreshCw, CreditCard, Trash2, MessagesSquare } from "lucide-react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import Navigation from "@/components/Navigation";
@@ -526,6 +526,7 @@ const Dashboard = () => {
             <h3 className="font-display font-bold mb-4">Quick Actions</h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
+                { label: "A2A Messages", icon: MessagesSquare, href: "/dashboard/messages" },
                 { label: "Billing", icon: CreditCard, href: "/settings#billing" },
                 { label: "Explore", icon: Bot, href: "/explore" },
                 { label: "Settings", icon: Settings, href: "/settings" }
