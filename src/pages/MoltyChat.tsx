@@ -52,13 +52,14 @@ const MoltyChat = () => {
       if (!moltyId) return;
       
       try {
-        // Use direct API call to Convex
+        // Use getByIdSecure to get authToken (requires ownerId for security)
+        const ownerId = user?.userId;
         const response = await fetch(`${CONVEX_URL}/api/query`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            path: "moltys:getById",
-            args: { moltyId }
+            path: ownerId ? "moltys:getByIdSecure" : "moltys:getById",
+            args: ownerId ? { id: moltyId, ownerId } : { id: moltyId }
           }),
         });
         
