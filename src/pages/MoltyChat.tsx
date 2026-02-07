@@ -96,7 +96,23 @@ const MoltyChat = () => {
   }, [messages]);
 
   const handleSend = async () => {
-    if (!input.trim() || !molty?.gatewayUrl || !molty?.authToken) return;
+    if (!input.trim() || !molty?.gatewayUrl || !molty?.sandboxId) return;
+    
+    // Get authToken - try multiple sources
+    const authToken = molty.authToken 
+      || localStorage.getItem(`molty_token_${molty.sandboxId}`)
+      || localStorage.getItem(`molty_token_${molty.id}`);
+    
+    if (!authToken) {
+      console.error("[MoltyChat] No auth token available for this Molty");
+      setMessages(prev => [...prev, {
+        id: Date.now().toString(),
+        role: "assistant",
+        content: "⚠️ Unable to send messages - authentication token not found. This may happen if the Molty was created by another user or if you need to re-login.",
+        timestamp: "Just now"
+      }]);
+      return;
+    }
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -116,7 +132,7 @@ const MoltyChat = () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Molty-Token": molty.authToken,
+          "X-Molty-Token": authToken || "",
         },
         body: JSON.stringify({ message: input }),
       });

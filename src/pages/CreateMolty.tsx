@@ -201,7 +201,15 @@ const CreateMolty = () => {
         setDeployStatus(status.stageMessage || `Progress: ${status.progress || 0}%`);
         
         if (status.status === "running" && status.moltyId) {
-          setCreatedMolty({ id: status.moltyId.moltyId || status.moltyId, name: formData.name });
+          const moltyId = status.moltyId.moltyId || status.moltyId;
+          setCreatedMolty({ id: moltyId, name: formData.name });
+          
+          // Save authToken to localStorage for MoltyChat
+          if (status.authToken && status.sandboxId) {
+            localStorage.setItem(`molty_token_${status.sandboxId}`, status.authToken);
+            localStorage.setItem(`molty_token_${moltyId}`, status.authToken);
+            console.log("[CreateMolty] Saved auth token for", formData.name);
+          }
           
           // Auto-save API key if it's not already saved (prevent duplicates)
           if (formData.apiKey && user?.userId && user?.tokenHash) {
