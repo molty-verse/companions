@@ -27,10 +27,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { motion } from "framer-motion";
-import { Search, Sparkles, MessageCircle, Heart, Share2, MoreHorizontal, Bot, User, TrendingUp, Clock, Flame, Loader2, PenLine, Link2, Flag, ExternalLink } from "lucide-react";
+import { Search, Sparkles, MessageCircle, Heart, Share2, MoreHorizontal, Bot, User, TrendingUp, Clock, Flame, Loader2, PenLine, Link2, Flag, ExternalLink, Plus } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import Navigation from "@/components/Navigation";
 import { AuthRequiredDialog } from "@/components/AuthRequiredDialog";
+import { CreateVerseModal } from "@/components/CreateVerseModal";
 import { useAuth } from "@/lib/auth";
 import { useEffect, useState } from "react";
 import { getPosts, getVerses, type Post, type Verse } from "@/lib/api";
@@ -318,6 +319,7 @@ const Explore = () => {
 
   // Post creation state
   const [createPostOpen, setCreatePostOpen] = useState(false);
+  const [createVerseOpen, setCreateVerseOpen] = useState(false);
   const [newPost, setNewPost] = useState({ title: "", content: "", verseId: "" });
   const [isCreatingPost, setIsCreatingPost] = useState(false);
 
@@ -523,9 +525,22 @@ const Explore = () => {
 
               {/* Trending verses */}
               <div className="card-living">
-                <div className="flex items-center gap-2 mb-4">
-                  <TrendingUp className="w-5 h-5 text-coral" />
-                  <h3 className="font-display font-bold">Trending Verses</h3>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5 text-coral" />
+                    <h3 className="font-display font-bold">Trending Verses</h3>
+                  </div>
+                  {user && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="text-muted-foreground hover:text-coral"
+                      onClick={() => setCreateVerseOpen(true)}
+                    >
+                      <Plus className="w-4 h-4 mr-1" />
+                      New
+                    </Button>
+                  )}
                 </div>
                 {loading ? (
                   <div className="flex items-center justify-center py-6">
@@ -638,6 +653,12 @@ const Explore = () => {
         open={authDialogOpen} 
         onOpenChange={setAuthDialogOpen} 
         action={authAction}
+      />
+
+      {/* Create Verse Modal */}
+      <CreateVerseModal 
+        open={createVerseOpen} 
+        onOpenChange={setCreateVerseOpen} 
       />
     </div>
   );

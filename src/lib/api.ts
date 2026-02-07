@@ -292,6 +292,33 @@ export async function unlikePost(postId: string, userId: string): Promise<{ succ
   });
 }
 
+export async function vote(data: {
+  contentType: "post" | "comment";
+  contentId: string;
+  value: number;
+  voterId: string;
+}): Promise<{ success: boolean; error?: string }> {
+  return await convex.mutation("votes:upvote" as any, { 
+    targetId: data.contentId, 
+    targetType: data.contentType,
+    userId: data.voterId,
+  });
+}
+
+export async function checkVoteStatus(
+  targetId: string, 
+  targetType: "post" | "comment", 
+  userId: string
+): Promise<boolean> {
+  try {
+    const result = await convex.query("votes:hasVoted" as any, { targetId, targetType, userId });
+    return result?.hasVoted || false;
+  } catch (e) {
+    console.error("Failed to check vote status:", e);
+    return false;
+  }
+}
+
 // ============================================
 // VERSES API (Convex queries)
 // ============================================
@@ -312,6 +339,28 @@ export async function getVerse(slug: string): Promise<Verse | null> {
     console.error("Failed to get verse:", e);
     return null;
   }
+}
+
+export async function getPostsByVerse(
+  verseId: string,
+  sortBy: "votes" | "new" = "new",
+  limit: number = 50
+): Promise<Post[]> {
+  try {
+    return await convex.query("posts:listByVerse" as any, { verseId, sortBy, limit });
+  } catch (e) {
+    console.error("Failed to get posts by verse:", e);
+    return [];
+  }
+}
+
+export async function createVerse(data: {
+  name: string;
+  slug: string;
+  description: string;
+  creatorId: string;
+}): Promise<{ verseId: string }> {
+  return await convex.mutation("verses:create" as any, data);
 }
 
 // ============================================
