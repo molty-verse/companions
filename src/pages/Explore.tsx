@@ -99,7 +99,10 @@ const PostCard = ({ post, onAuthRequired, isAuthenticated, userId, onVoteUpdate 
   // Check if user has voted on mount
   useEffect(() => {
     const checkVote = async () => {
-      if (!userId || !isAuthenticated) return;
+      if (!userId || !isAuthenticated) {
+        setHasVoted(false);
+        return;
+      }
       try {
         const response = await fetch(`${CONVEX_URL}/api/query`, {
           method: "POST",
@@ -110,12 +113,16 @@ const PostCard = ({ post, onAuthRequired, isAuthenticated, userId, onVoteUpdate 
           }),
         });
         const data = await response.json();
-        if (data.status === "success" && data.value) {
-          // data.value is { hasVoted: boolean }
-          setHasVoted(data.value.hasVoted === true);
+        console.log(`[Vote] Post ${post.id} check:`, data);
+        if (data.status === "success" && data.value && typeof data.value.hasVoted === "boolean") {
+          setHasVoted(data.value.hasVoted);
+        } else {
+          // Default to false if response is malformed
+          setHasVoted(false);
         }
       } catch (e) {
         console.error("Failed to check vote status:", e);
+        setHasVoted(false);
       }
     };
     checkVote();
