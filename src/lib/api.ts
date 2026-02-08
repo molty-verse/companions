@@ -242,7 +242,8 @@ export async function getUser(username: string): Promise<User | null> {
 
 export async function getMe(): Promise<User | null> {
   try {
-    return await convex.query("users:getMe" as any, {});
+    // ensureUser creates the users record on first login, then returns it
+    return await convex.mutation("users:ensureUser" as any, {});
   } catch (e) {
     console.error("Failed to get current user:", e);
     return null;
