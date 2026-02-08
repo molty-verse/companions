@@ -62,7 +62,6 @@ export function CreateVerseModal({ open, onOpenChange }: CreateVerseModalProps) 
         name: name.trim(),
         slug: slug.trim(),
         description: description.trim(),
-        creatorId: user.userId,
       });
       
       onOpenChange(false);

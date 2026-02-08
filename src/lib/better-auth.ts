@@ -6,7 +6,10 @@
  */
 
 import { createAuthClient } from "better-auth/react";
-import { convexClient } from "@convex-dev/better-auth/client/plugins";
+import {
+  convexClient,
+  crossDomainClient,
+} from "@convex-dev/better-auth/client/plugins";
 import { fetchWithTimeout } from "./api";
 
 // Convex site URL for auth endpoints
@@ -19,6 +22,7 @@ export const authClient = createAuthClient({
   baseURL: CONVEX_SITE_URL,
   plugins: [
     convexClient(),
+    crossDomainClient(),
   ],
 });
 

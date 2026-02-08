@@ -23,11 +23,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { motion } from "framer-motion";
 import { Plus, Settings, MessageCircle, Bot, Zap, Clock, TrendingUp, MoreVertical, Power, Loader2, RefreshCw, CreditCard, Trash2, MessagesSquare } from "lucide-react";
-import { Link, useSearchParams, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import Navigation from "@/components/Navigation";
 import { useAuth, useRequireAuth } from "@/lib/auth";
-import { verifyOneTimeToken } from "@/lib/better-auth";
 import { toast } from "@/hooks/use-toast";
 import { convex } from "@/lib/convex";
 
@@ -187,13 +186,11 @@ const MoltyCard = ({ molty, onDelete, onPowerToggle, isPowerLoading }: MoltyCard
 };
 
 const Dashboard = () => {
-  const { user, setOAuthUser } = useAuth();
+  const { user } = useAuth();
   const { isLoading: authLoading } = useRequireAuth();
   const [moltys, setMoltys] = useState<MoltyData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
 
   // Delete modal state
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -203,51 +200,6 @@ const Dashboard = () => {
 
   // Power toggle state
   const [powerLoadingId, setPowerLoadingId] = useState<string | null>(null);
-
-  // Handle OAuth one-time token verification (cross-domain auth)
-  useEffect(() => {
-    // Debug: Log all URL params
-    console.log("[Dashboard] URL search params:", Object.fromEntries(searchParams.entries()));
-    console.log("[Dashboard] Current URL:", window.location.href);
-    
-    const ott = searchParams.get("ott");
-    if (ott) {
-      console.log("[Dashboard] Found OTT token, verifying...");
-      // Remove ott from URL immediately
-      searchParams.delete("ott");
-      setSearchParams(searchParams, { replace: true });
-      
-      // Verify the one-time token and save user data
-      verifyOneTimeToken(ott)
-        .then((userData) => {
-          console.log("[Dashboard] OTT verified, saving user:", userData);
-          
-          // Save user to auth context and localStorage
-          setOAuthUser({
-            userId: userData.userId,
-            username: userData.username,
-            email: userData.email,
-          });
-          
-          toast({
-            title: "Welcome!",
-            description: "You've been signed in successfully",
-          });
-          
-          // Force re-render by reloading (now with user in localStorage)
-          window.location.reload();
-        })
-        .catch((err) => {
-          console.error("OTT verification failed:", err);
-          toast({
-            title: "Sign in failed",
-            description: "Could not complete sign in. Please try again.",
-            variant: "destructive",
-          });
-          navigate("/login");
-        });
-    }
-  }, [searchParams, setSearchParams, navigate, setOAuthUser]);
 
   const fetchMoltys = async () => {
     if (!user?.userId) return;

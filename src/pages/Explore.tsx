@@ -34,9 +34,9 @@ import { AuthRequiredDialog } from "@/components/AuthRequiredDialog";
 import { CreateVerseModal } from "@/components/CreateVerseModal";
 import { useAuth } from "@/lib/auth";
 import { useEffect, useState } from "react";
-import { getPosts, getVerses, fetchWithTimeout, getAccessToken, type Post, type Verse } from "@/lib/api";
+import { getPosts, getVerses, fetchWithTimeout, type Post, type Verse } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
-import { CONVEX_URL, CONVEX_SITE_URL } from "@/lib/convex";
+import { convex, CONVEX_SITE_URL } from "@/lib/convex";
 
 interface EnrichedPost {
   id: string;
@@ -87,11 +87,10 @@ interface PostCardProps {
   post: EnrichedPost;
   onAuthRequired: (action: string) => void;
   isAuthenticated: boolean;
-  userId?: string;
   onVoteUpdate?: (postId: string, newCount: number, hasVoted: boolean) => void;
 }
 
-const PostCard = ({ post, onAuthRequired, isAuthenticated, userId, onVoteUpdate }: PostCardProps) => {
+const PostCard = ({ post, onAuthRequired, isAuthenticated, onVoteUpdate }: PostCardProps) => {
   const navigate = useNavigate();
   const [isVoting, setIsVoting] = useState(false);
   const [hasVoted, setHasVoted] = useState(false);
@@ -100,25 +99,18 @@ const PostCard = ({ post, onAuthRequired, isAuthenticated, userId, onVoteUpdate 
   // Check if user has voted on mount
   useEffect(() => {
     const checkVote = async () => {
-      if (!userId || !isAuthenticated) {
+      if (!isAuthenticated) {
         setHasVoted(false);
         return;
       }
       try {
-        const response = await fetchWithTimeout(`${CONVEX_URL}/api/query`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            path: "votes:hasVoted",
-            args: { userId, targetType: "post", targetId: post.id }
-          }),
+        const result = await convex.query("votes:hasVoted" as any, {
+          targetType: "post",
+          targetId: post.id,
         });
-        const data = await response.json();
-        console.log(`[Vote] Post ${post.id} check:`, data);
-        if (data.status === "success" && data.value && typeof data.value.hasVoted === "boolean") {
-          setHasVoted(data.value.hasVoted);
+        if (result && typeof result.hasVoted === "boolean") {
+          setHasVoted(result.hasVoted);
         } else {
-          // Default to false if response is malformed
           setHasVoted(false);
         }
       } catch (e) {
@@ -127,38 +119,33 @@ const PostCard = ({ post, onAuthRequired, isAuthenticated, userId, onVoteUpdate 
       }
     };
     checkVote();
-  }, [userId, post.id, isAuthenticated]);
+  }, [post.id, isAuthenticated]);
 
   const handleVote = async () => {
     if (!isAuthenticated) {
       onAuthRequired("upvote posts");
       return;
     }
-    if (!userId || isVoting) return;
+    if (isVoting) return;
 
     setIsVoting(true);
     try {
-      const mutation = hasVoted ? "votes:removeVote" : "votes:upvote";
-      const response = await fetchWithTimeout(`${CONVEX_URL}/api/mutation`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          path: mutation,
-          args: { userId, targetType: "post", targetId: post.id }
-        }),
+      const mutationName = hasVoted ? "votes:removeVote" : "votes:upvote";
+      const result = await convex.mutation(mutationName as any, {
+        targetType: "post",
+        targetId: post.id,
       });
-      const data = await response.json();
-      
-      if (data.status === "success" && data.value?.success) {
+
+      if (result?.success) {
         const newVoted = !hasVoted;
         const newCount = newVoted ? localVoteCount + 1 : localVoteCount - 1;
         setHasVoted(newVoted);
         setLocalVoteCount(newCount);
         onVoteUpdate?.(post.id, newCount, newVoted);
-      } else if (data.value?.error) {
+      } else if (result?.error) {
         toast({
           title: "Vote failed",
-          description: data.value.error,
+          description: result.error,
           variant: "destructive",
         });
       }
@@ -340,8 +327,6 @@ const Explore = () => {
 
     setIsCreatingPost(true);
     try {
-      const accessToken = getAccessToken();
-
       // Find the verse slug from the verseId
       const selectedVerse = verses.find(v => v.id === newPost.verseId);
       if (!selectedVerse) {
@@ -353,7 +338,6 @@ const Explore = () => {
         credentials: "include",
         headers: {
           "Content-Type": "application/json",
-          ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
         },
         body: JSON.stringify({
           verse: selectedVerse.slug,
@@ -362,7 +346,7 @@ const Explore = () => {
         }),
       });
       const data = await response.json();
-      
+
       if (data.success || data.postId) {
         toast({
           title: "Post created!",
@@ -476,7 +460,7 @@ const Explore = () => {
                     posts
                       .slice()
                       .sort((a, b) => b.voteCount - a.voteCount)
-                      .map((post) => <PostCard key={post.id} post={post} isAuthenticated={isAuthenticated} userId={user?.userId} onAuthRequired={handleAuthRequired} />)
+                      .map((post) => <PostCard key={post.id} post={post} isAuthenticated={isAuthenticated} onAuthRequired={handleAuthRequired} />)
                   )}
                 </TabsContent>
                 <TabsContent value="latest" className="mt-6">
@@ -493,7 +477,7 @@ const Explore = () => {
                     posts
                       .slice()
                       .sort((a, b) => b.createdAt - a.createdAt)
-                      .map((post) => <PostCard key={post.id} post={post} isAuthenticated={isAuthenticated} userId={user?.userId} onAuthRequired={handleAuthRequired} />)
+                      .map((post) => <PostCard key={post.id} post={post} isAuthenticated={isAuthenticated} onAuthRequired={handleAuthRequired} />)
                   )}
                 </TabsContent>
                 <TabsContent value="following" className="mt-6">

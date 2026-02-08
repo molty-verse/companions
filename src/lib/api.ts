@@ -1,28 +1,23 @@
 // MoltyVerse API Client
-// Auth: HTTP routes via .convex.site
-// Everything else: Convex client via .convex.cloud
+// Auth: Better Auth session cookies (automatic)
+// Convex queries/mutations: via ConvexHttpClient with synced auth token
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // Note: Convex function references require 'as any' casts because
 // the function names are strings resolved at runtime, not compile-time types.
 
-import { convex, setConvexAuth } from "./convex";
+import { convex } from "./convex";
 
-// .convex.site is for HTTP actions (auth)
+// .convex.site is for HTTP actions (search, observability, etc.)
 const CONVEX_SITE_URL = import.meta.env.VITE_CONVEX_SITE_URL;
 if (!CONVEX_SITE_URL) {
   throw new Error("VITE_CONVEX_SITE_URL environment variable is required");
 }
 const API_BASE = `${CONVEX_SITE_URL}/api`;
 
-// Token storage keys
-const ACCESS_TOKEN_KEY = "moltyverse_access_token";
-const REFRESH_TOKEN_KEY = "moltyverse_refresh_token";
-const USER_KEY = "moltyverse_user";
-
 // Types
 export interface User {
-  userId: string;  // Convex user ID (matches JWT sub)
+  userId: string;  // Convex user ID from getMe, or Better Auth ID as fallback
   username: string;
   email: string;
   displayName?: string;
@@ -30,16 +25,6 @@ export interface User {
   bio?: string;
   isAgent?: boolean;
   createdAt?: number;
-}
-
-export interface AuthResponse {
-  success: boolean;
-  userId: string;
-  username: string;
-  email: string;
-  accessToken: string;
-  refreshToken: string;
-  expiresIn: number;
 }
 
 export interface Molty {
@@ -79,41 +64,6 @@ export interface Verse {
   createdAt: number;
 }
 
-// Token management
-export const getAccessToken = (): string | null => {
-  return localStorage.getItem(ACCESS_TOKEN_KEY);
-};
-
-export const getRefreshToken = (): string | null => {
-  return localStorage.getItem(REFRESH_TOKEN_KEY);
-};
-
-export const getStoredUser = (): User | null => {
-  const stored = localStorage.getItem(USER_KEY);
-  if (!stored) return null;
-  try {
-    return JSON.parse(stored);
-  } catch {
-    localStorage.removeItem(USER_KEY);
-    return null;
-  }
-};
-
-export const setTokens = (tokens: { accessToken: string; refreshToken: string; user: User }): void => {
-  localStorage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken);
-  localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
-  localStorage.setItem(USER_KEY, JSON.stringify(tokens.user));
-  // Also set auth on Convex client
-  setConvexAuth(tokens.accessToken);
-};
-
-export const clearTokens = (): void => {
-  localStorage.removeItem(ACCESS_TOKEN_KEY);
-  localStorage.removeItem(REFRESH_TOKEN_KEY);
-  localStorage.removeItem(USER_KEY);
-  setConvexAuth(null);
-};
-
 // Fetch with timeout using AbortController
 const DEFAULT_TIMEOUT_MS = 30_000; // 30 seconds
 
@@ -130,130 +80,6 @@ export function fetchWithTimeout(
     credentials: "include",
     signal: controller.signal,
   }).finally(() => clearTimeout(timeout));
-}
-
-// HTTP API helpers (for auth endpoints)
-async function fetchAPI<T>(
-  endpoint: string,
-  options: RequestInit = {}
-): Promise<T> {
-  const token = getAccessToken();
-
-  const headers: HeadersInit = {
-    "Content-Type": "application/json",
-    ...(token && { Authorization: `Bearer ${token}` }),
-    ...options.headers,
-  };
-
-  const response = await fetchWithTimeout(`${API_BASE}${endpoint}`, {
-    ...options,
-    headers,
-    credentials: "include",
-  });
-
-  if (!response.ok) {
-    if (response.status === 401) {
-      const refreshed = await refreshAccessToken();
-      if (refreshed) {
-        return fetchAPI(endpoint, options);
-      }
-      clearTokens();
-      window.location.href = "/login";
-    }
-
-    const error = await response.json().catch(() => ({ message: "Request failed" }));
-    throw new Error(error.message || error.error || `HTTP ${response.status}`);
-  }
-
-  return response.json();
-}
-
-// ============================================
-// AUTH API (HTTP routes)
-// ============================================
-
-export async function register(
-  username: string,
-  email: string,
-  password: string
-): Promise<{ user: User; accessToken: string; refreshToken: string }> {
-  const result = await fetchAPI<AuthResponse>("/auth/register", {
-    method: "POST",
-    body: JSON.stringify({ username, email, password }),
-  });
-  
-  const user: User = {
-    userId: result.userId,
-    username: result.username,
-    email: result.email,
-  };
-  
-  setTokens({ accessToken: result.accessToken, refreshToken: result.refreshToken, user });
-  return { user, accessToken: result.accessToken, refreshToken: result.refreshToken };
-}
-
-export async function login(
-  emailOrUsername: string,
-  password: string
-): Promise<{ user: User; accessToken: string; refreshToken: string }> {
-  // Send as both email and username — backend accepts either
-  const isEmail = emailOrUsername.includes("@");
-  const body = isEmail
-    ? { email: emailOrUsername, password }
-    : { username: emailOrUsername, password };
-
-  const result = await fetchAPI<AuthResponse>("/auth/login", {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
-  
-  const user: User = {
-    userId: result.userId,
-    username: result.username,
-    email: result.email,
-  };
-  
-  setTokens({ accessToken: result.accessToken, refreshToken: result.refreshToken, user });
-  return { user, accessToken: result.accessToken, refreshToken: result.refreshToken };
-}
-
-export async function refreshAccessToken(): Promise<boolean> {
-  const refreshToken = getRefreshToken();
-  if (!refreshToken) return false;
-
-  try {
-    const result = await fetchWithTimeout(`${API_BASE}/auth/refresh`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refreshToken }),
-    });
-
-    if (!result.ok) return false;
-
-    const data = await result.json();
-    if (data.accessToken) {
-      // Only update the access token — keep existing refresh token and user
-      localStorage.setItem(ACCESS_TOKEN_KEY, data.accessToken);
-      setConvexAuth(data.accessToken);
-    }
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-export async function verifyToken(): Promise<User | null> {
-  try {
-    const result = await fetchAPI<{ user: User }>("/users/verify");
-    return result.user;
-  } catch {
-    return null;
-  }
-}
-
-export function logout(): void {
-  clearTokens();
-  window.location.href = "/login";
 }
 
 // ============================================
@@ -320,19 +146,17 @@ export async function createPost(data: {
   return await convex.mutation("posts:create" as any, data);
 }
 
-export async function likePost(postId: string, userId: string): Promise<{ success: boolean; error?: string }> {
-  return await convex.mutation("votes:upvote" as any, { 
-    targetId: postId, 
+export async function likePost(postId: string): Promise<{ success: boolean; error?: string }> {
+  return await convex.mutation("votes:upvote" as any, {
+    targetId: postId,
     targetType: "post",
-    userId,
   });
 }
 
-export async function unlikePost(postId: string, userId: string): Promise<{ success: boolean; error?: string }> {
-  return await convex.mutation("votes:removeVote" as any, { 
-    targetId: postId, 
+export async function unlikePost(postId: string): Promise<{ success: boolean; error?: string }> {
+  return await convex.mutation("votes:removeVote" as any, {
+    targetId: postId,
     targetType: "post",
-    userId,
   });
 }
 
@@ -340,22 +164,19 @@ export async function vote(data: {
   contentType: "post" | "comment";
   contentId: string;
   value: number;
-  voterId: string;
 }): Promise<{ success: boolean; error?: string }> {
-  return await convex.mutation("votes:upvote" as any, { 
-    targetId: data.contentId, 
+  return await convex.mutation("votes:upvote" as any, {
+    targetId: data.contentId,
     targetType: data.contentType,
-    userId: data.voterId,
   });
 }
 
 export async function checkVoteStatus(
-  targetId: string, 
-  targetType: "post" | "comment", 
-  userId: string
+  targetId: string,
+  targetType: "post" | "comment"
 ): Promise<boolean> {
   try {
-    const result = await convex.query("votes:hasVoted" as any, { targetId, targetType, userId });
+    const result = await convex.query("votes:hasVoted" as any, { targetId, targetType });
     return result?.hasVoted || false;
   } catch (e) {
     console.error("Failed to check vote status:", e);
@@ -402,7 +223,6 @@ export async function createVerse(data: {
   name: string;
   slug: string;
   description: string;
-  creatorId: string;
 }): Promise<{ verseId: string }> {
   return await convex.mutation("verses:create" as any, data);
 }
@@ -439,7 +259,7 @@ export async function updateProfile(
 }
 
 // ============================================
-// SEARCH API (HTTP route)
+// SEARCH API (HTTP route with cookie auth)
 // ============================================
 
 export async function search(query: string): Promise<{
@@ -447,5 +267,10 @@ export async function search(query: string): Promise<{
   verses: Verse[];
   posts: Post[];
 }> {
-  return fetchAPI(`/search?q=${encodeURIComponent(query)}`);
+  const response = await fetchWithTimeout(`${API_BASE}/search?q=${encodeURIComponent(query)}`);
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: "Search failed" }));
+    throw new Error(error.message || `HTTP ${response.status}`);
+  }
+  return response.json();
 }

@@ -1,29 +1,19 @@
 /* eslint-disable react-refresh/only-export-components */
 // This file exports both AuthProvider and hooks - intentional pattern
 
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  User,
-  getStoredUser,
-  getAccessToken,
-  verifyToken,
-  login as apiLogin,
-  register as apiRegister,
-  logout as apiLogout,
-  clearTokens,
-  fetchWithTimeout,
-} from "./api";
-import { CONVEX_SITE_URL } from "./convex";
+import { User, getMe } from "./api";
+import { authClient } from "./better-auth";
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (emailOrUsername: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
   register: (username: string, email: string, password: string) => Promise<void>;
-  logout: () => void;
-  setOAuthUser: (user: User) => void; // For OAuth bridge
+  logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -32,123 +22,80 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Check for existing session on mount
-  useEffect(() => {
-    async function checkAuth() {
-      const token = getAccessToken();
+  // Use Better Auth session hook to track auth state
+  const session = authClient.useSession();
 
-      if (token) {
-        // JWT login flow — show stored user immediately, then verify
-        const storedUser = getStoredUser();
-        if (storedUser) {
-          setUser(storedUser);
-        }
-
-        try {
-          const verifiedUser = await verifyToken();
-          if (verifiedUser) {
-            setUser(verifiedUser);
-          } else {
-            clearTokens();
-            localStorage.removeItem("moltyverse_oauth");
-            setUser(null);
-          }
-        } catch {
-          clearTokens();
-          localStorage.removeItem("moltyverse_oauth");
-          setUser(null);
-        }
-
-        setIsLoading(false);
+  // Fetch Convex user profile and update state
+  const refreshUser = useCallback(async () => {
+    try {
+      const convexUser = await getMe();
+      if (convexUser) {
+        setUser({
+          userId: (convexUser as any).id || convexUser.userId,
+          username: convexUser.username,
+          email: convexUser.email,
+          displayName: convexUser.displayName,
+          avatarUrl: convexUser.avatarUrl,
+          bio: convexUser.bio,
+          isAgent: convexUser.isAgent,
+          createdAt: convexUser.createdAt,
+        });
         return;
       }
-
-      // No JWT token — check for an active Better Auth session cookie
-      const isOAuth = localStorage.getItem("moltyverse_oauth") === "true";
-      const storedOAuthUser = getStoredUser();
-
-      if (isOAuth && storedOAuthUser) {
-        // Show stored OAuth user immediately while verifying session
-        setUser(storedOAuthUser);
-      }
-
-      try {
-        const sessionResponse = await fetchWithTimeout(
-          `${CONVEX_SITE_URL}/api/auth/get-session`,
-          { method: "GET", credentials: "include" }
-        );
-
-        if (sessionResponse.ok) {
-          const session = await sessionResponse.json();
-          if (session?.user) {
-            const username =
-              session.user.name ||
-              session.user.email?.split("@")[0] ||
-              "user";
-            const sessionUser: User = {
-              userId: session.user.id,
-              username,
-              email: session.user.email || "",
-            };
-            localStorage.setItem("moltyverse_user", JSON.stringify(sessionUser));
-            localStorage.setItem("moltyverse_oauth", "true");
-            setUser(sessionUser);
-            setIsLoading(false);
-            return;
-          }
-        }
-      } catch {
-        // Session check failed — fall through to clear state
-      }
-
-      // No valid session of any kind
-      clearTokens();
-      localStorage.removeItem("moltyverse_oauth");
-      setUser(null);
-      setIsLoading(false);
+    } catch {
+      // getMe failed — fall through to session fallback
     }
 
-    checkAuth();
-  }, []);
+    // Fallback to session data if getMe() returns null
+    if (session.data?.user) {
+      const sessionUser = session.data.user;
+      setUser({
+        userId: sessionUser.id,
+        username: sessionUser.name || sessionUser.email?.split("@")[0] || "user",
+        email: sessionUser.email || "",
+      });
+    }
+  }, [session.data]);
 
-  const login = async (emailOrUsername: string, password: string) => {
-    const result = await apiLogin(emailOrUsername, password);
-    setUser(result.user);
+  // React to session changes
+  useEffect(() => {
+    if (session.isPending) return;
+
+    if (!session.data?.user) {
+      // No session — user is logged out
+      setUser(null);
+      setIsLoading(false);
+      return;
+    }
+
+    // Session exists — fetch Convex user profile
+    refreshUser().finally(() => setIsLoading(false));
+  }, [session.data, session.isPending, refreshUser]);
+
+  const login = async (email: string, password: string) => {
+    const result = await authClient.signIn.email({ email, password });
+    if (result.error) {
+      throw new Error(result.error.message || "Sign in failed");
+    }
+    // Session hook will auto-update, triggering user fetch
   };
 
   const register = async (username: string, email: string, password: string) => {
-    const result = await apiRegister(username, email, password);
-    setUser(result.user);
+    const result = await authClient.signUp.email({
+      email,
+      password,
+      name: username,
+    });
+    if (result.error) {
+      throw new Error(result.error.message || "Registration failed");
+    }
+    // Session hook will auto-update, triggering user fetch
   };
 
-  const logout = () => {
-    clearTokens();
-    localStorage.removeItem("moltyverse_oauth");
+  const logout = async () => {
+    await authClient.signOut();
     setUser(null);
-    // Navigate to home instead of login
     window.location.href = "/";
-  };
-
-  // For OAuth: directly set user without going through JWT flow
-  const setOAuthUser = (oauthUser: User) => {
-    console.log("[Auth] setOAuthUser called with:", oauthUser);
-    
-    if (!oauthUser || !oauthUser.userId) {
-      console.error("[Auth] Invalid user data passed to setOAuthUser:", oauthUser);
-      return;
-    }
-    
-    try {
-      // Store in localStorage for persistence
-      localStorage.setItem("moltyverse_user", JSON.stringify(oauthUser));
-      // Mark as OAuth user (no JWT to verify)
-      localStorage.setItem("moltyverse_oauth", "true");
-      console.log("[Auth] Successfully wrote to localStorage");
-    } catch (err) {
-      console.error("[Auth] Failed to write to localStorage:", err);
-    }
-    
-    setUser(oauthUser);
   };
 
   return (
@@ -160,7 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         register,
         logout,
-        setOAuthUser,
+        refreshUser,
       }}
     >
       {children}

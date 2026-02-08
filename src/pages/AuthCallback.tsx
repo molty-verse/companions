@@ -7,21 +7,24 @@ import { toast } from "@/hooks/use-toast";
 
 /**
  * OAuth Callback Handler
- * Handles the one-time token from crossDomain OAuth redirect
+ * Handles the one-time token from crossDomain OAuth redirect.
  * Route: /auth/callback?ott=TOKEN
+ *
+ * After OTT verification, the session cookie is set.
+ * The Better Auth session hook in AuthProvider will detect the new
+ * session and fetch the Convex user profile automatically.
  */
 const AuthCallback = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { setOAuthUser, user, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
   const [error, setError] = useState<string | null>(null);
-  const [authComplete, setAuthComplete] = useState(false);
+  const [verified, setVerified] = useState(false);
 
-  // Handle OTT verification (with guard against React Strict Mode double-invoke)
+  // Verify the OTT (sets session cookie)
   useEffect(() => {
     const ott = searchParams.get("ott");
     console.log("[AuthCallback] Received OTT:", ott ? "present" : "missing");
-    console.log("[AuthCallback] Full URL:", window.location.href);
 
     if (!ott) {
       console.error("[AuthCallback] No OTT token found");
@@ -34,40 +37,19 @@ const AuthCallback = () => {
     const ottKey = `ott_verified_${ott.slice(0, 16)}`;
     if (sessionStorage.getItem(ottKey)) {
       console.log("[AuthCallback] OTT already verified, skipping");
+      setVerified(true);
       return;
     }
     sessionStorage.setItem(ottKey, "true");
 
-    // Verify the one-time token and get user data
     verifyOneTimeToken(ott)
-      .then((userData) => {
-        console.log("[AuthCallback] OTT verified, full userData:", JSON.stringify(userData));
-
-        if (!userData || !userData.betterAuthId) {
-          console.error("[AuthCallback] Invalid userData received:", userData);
-          setError("Invalid user data received");
-          setTimeout(() => navigate("/login"), 2000);
-          return;
-        }
-
-        // Set user in auth context — use betterAuthId as initial userId
-        // The session cookie handles auth; getSessionUser() on the backend
-        // will find/create the MoltyVerse user on the first API call
-        const userToStore = {
-          userId: userData.betterAuthId,
-          username: userData.username,
-          email: userData.email,
-        };
-        console.log("[AuthCallback] Storing user:", JSON.stringify(userToStore));
-        setOAuthUser(userToStore);
-        
+      .then(() => {
+        console.log("[AuthCallback] OTT verified, session cookie set");
+        setVerified(true);
         toast({
           title: "Welcome!",
           description: "You've been signed in successfully",
         });
-        
-        // Mark auth as complete - navigation will happen in separate effect
-        setAuthComplete(true);
       })
       .catch((err) => {
         console.error("[AuthCallback] OTT verification failed:", err);
@@ -79,15 +61,15 @@ const AuthCallback = () => {
         });
         setTimeout(() => navigate("/login"), 2000);
       });
-  }, [searchParams, navigate, setOAuthUser]);
+  }, [searchParams, navigate]);
 
-  // Navigate to dashboard AFTER user state is actually set
+  // Navigate to dashboard once the session is detected by AuthProvider
   useEffect(() => {
-    if (authComplete && isAuthenticated && user) {
-      console.log("[AuthCallback] User confirmed in state, navigating to dashboard");
+    if (verified && isAuthenticated) {
+      console.log("[AuthCallback] Session detected, navigating to dashboard");
       navigate("/dashboard", { replace: true });
     }
-  }, [authComplete, isAuthenticated, user, navigate]);
+  }, [verified, isAuthenticated, navigate]);
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center">

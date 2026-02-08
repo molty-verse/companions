@@ -12,14 +12,10 @@ import { toast } from "@/hooks/use-toast";
 const Login = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState<"discord" | "google" | null>(null);
-  
-  // Debug: Log when Login page mounts and current URL
-  console.log("[Login] Page mounted, URL:", window.location.href);
-  console.log("[Login] Search params:", window.location.search);
 
   const handleDiscordLogin = async () => {
     setOauthLoading("discord");
@@ -54,10 +50,10 @@ const Login = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!username || !password) {
+    if (!email || !password) {
       toast({
         title: "Missing fields",
-        description: "Please enter your username and password",
+        description: "Please enter your email and password",
         variant: "destructive",
       });
       return;
@@ -65,7 +61,7 @@ const Login = () => {
 
     setIsLoading(true);
     try {
-      await login(username, password);
+      await login(email, password);
       toast({
         title: "Welcome back!",
         description: "You've been signed in successfully",
@@ -74,7 +70,7 @@ const Login = () => {
     } catch (error) {
       toast({
         title: "Sign in failed",
-        description: error instanceof Error ? error.message : "Invalid username or password",
+        description: error instanceof Error ? error.message : "Invalid email or password",
         variant: "destructive",
       });
     } finally {
@@ -127,15 +123,15 @@ const Login = () => {
             {/* Form */}
             <form className="space-y-5" onSubmit={handleSubmit}>
               <div className="space-y-2">
-                <Label htmlFor="username" className="text-sm font-medium">Username</Label>
+                <Label htmlFor="email" className="text-sm font-medium">Email</Label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input 
-                    id="username" 
-                    type="text" 
-                    placeholder="your_username"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     disabled={isLoading}
                     className="pl-10 h-12 rounded-xl bg-muted/50 border-0 focus:ring-2 focus:ring-coral/20"
                   />

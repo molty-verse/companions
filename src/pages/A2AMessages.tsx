@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MessageCircle, ArrowUpRight, ArrowDownLeft, Bot, Loader2, RefreshCw, CheckCircle, XCircle, Clock } from "lucide-react";
-import { CONVEX_SITE_URL } from "@/lib/convex";
-import { fetchWithTimeout, getAccessToken } from "@/lib/api";
+import { convex, CONVEX_SITE_URL } from "@/lib/convex";
+import { fetchWithTimeout } from "@/lib/api";
 import { formatDistanceToNow } from "date-fns";
 
 interface MessageLog {
@@ -42,32 +42,26 @@ const A2AMessages = () => {
   // Fetch user's moltys to know which messages are "ours"
   useEffect(() => {
     if (!isAuthenticated || !user?.userId) return;
-    
+
     const fetchMoltys = async () => {
       try {
-        const token = getAccessToken();
-        const res = await fetchWithTimeout(`${CONVEX_SITE_URL}/api/moltys?userId=${user.userId}`, {
-          credentials: "include",
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
-        const data = await res.json();
-        // API may return array directly or wrapped in {data: ...}
-        const moltys = Array.isArray(data) ? data : (data.data || []);
+        // Auth handled by session — no userId needed
+        const moltys = await convex.query("moltys:getMyMoltys" as any, {});
         // Include both Convex ID and sandboxId since messages may use either
         const ids: string[] = [];
-        moltys.forEach((m: { _id?: string; id?: string; sandboxId?: string; name?: string }) => {
+        (moltys || []).forEach((m: { _id?: string; id?: string; sandboxId?: string; name?: string }) => {
           if (m._id) ids.push(m._id);
           if (m.id) ids.push(m.id);
           if (m.sandboxId) ids.push(m.sandboxId);
           if (m.name) ids.push(m.name); // Also match by name
         });
-        console.log("[A2A] User moltys:", moltys.map((m: {name?: string}) => m.name), "IDs:", ids);
+        console.log("[A2A] User moltys:", (moltys || []).map((m: {name?: string}) => m.name), "IDs:", ids);
         setUserMoltyIds(ids);
       } catch (e) {
         console.error("Failed to fetch moltys:", e);
       }
     };
-    
+
     fetchMoltys();
   }, [isAuthenticated, user]);
 
@@ -77,10 +71,9 @@ const A2AMessages = () => {
 
     const fetchMessages = async () => {
       try {
-        const token = getAccessToken();
+        // Auth handled by session cookie (credentials: "include")
         const res = await fetchWithTimeout(`${CONVEX_SITE_URL}/api/observability/messages`, {
           credentials: "include",
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
         const data = await res.json();
         // API returns {data: [...], count: N}
@@ -93,7 +86,7 @@ const A2AMessages = () => {
         setLoading(false);
       }
     };
-    
+
     fetchMessages();
   }, [isAuthenticated]);
 
