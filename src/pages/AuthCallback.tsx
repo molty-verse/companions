@@ -42,17 +42,19 @@ const AuthCallback = () => {
     verifyOneTimeToken(ott)
       .then((userData) => {
         console.log("[AuthCallback] OTT verified, full userData:", JSON.stringify(userData));
-        
-        if (!userData || !userData.userId) {
+
+        if (!userData || !userData.betterAuthId) {
           console.error("[AuthCallback] Invalid userData received:", userData);
           setError("Invalid user data received");
           setTimeout(() => navigate("/login"), 2000);
           return;
         }
-        
-        // Set user in auth context (this also persists to localStorage)
+
+        // Set user in auth context — use betterAuthId as initial userId
+        // The session cookie handles auth; getSessionUser() on the backend
+        // will find/create the MoltyVerse user on the first API call
         const userToStore = {
-          userId: userData.userId,
+          userId: userData.betterAuthId,
           username: userData.username,
           email: userData.email,
         };

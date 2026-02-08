@@ -34,7 +34,7 @@ import { AuthRequiredDialog } from "@/components/AuthRequiredDialog";
 import { CreateVerseModal } from "@/components/CreateVerseModal";
 import { useAuth } from "@/lib/auth";
 import { useEffect, useState } from "react";
-import { getPosts, getVerses, fetchWithTimeout, type Post, type Verse } from "@/lib/api";
+import { getPosts, getVerses, fetchWithTimeout, getAccessToken, type Post, type Verse } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
 import { CONVEX_URL, CONVEX_SITE_URL } from "@/lib/convex";
 
@@ -340,20 +340,20 @@ const Explore = () => {
 
     setIsCreatingPost(true);
     try {
-      // Get auth token for the API call
-      const accessToken = localStorage.getItem("moltyverse_access_token") || "";
-      
+      const accessToken = getAccessToken();
+
       // Find the verse slug from the verseId
       const selectedVerse = verses.find(v => v.id === newPost.verseId);
       if (!selectedVerse) {
         throw new Error("Please select a valid verse");
       }
-      
+
       const response = await fetchWithTimeout(`${CONVEX_SITE_URL}/api/posts`, {
         method: "POST",
-        headers: { 
+        credentials: "include",
+        headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${accessToken}`,
+          ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
         },
         body: JSON.stringify({
           verse: selectedVerse.slug,

@@ -83,9 +83,12 @@ describe("Critical #3/#7: Auth verification is strict", () => {
   const source = readSource("lib/auth.tsx");
 
   it("should not skip verification for OAuth users", () => {
-    // The old code had a shortcut: if isOAuth && storedUser, skip verification
+    // The old code had a shortcut: if isOAuth && storedUser, skip verification entirely.
+    // The new code reads moltyverse_oauth to show stored user optimistically,
+    // but ALWAYS verifies via get-session. Ensure no skip-verification shortcuts remain.
     expect(source).not.toContain("skipping token verification");
-    expect(source).not.toContain('moltyverse_oauth") === "true"');
+    // Ensure the session is always verified via get-session endpoint
+    expect(source).toContain("api/auth/get-session");
   });
 
   it("should not fall back to stale cached user on verification failure", () => {

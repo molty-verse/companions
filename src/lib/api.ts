@@ -127,6 +127,7 @@ export function fetchWithTimeout(
 
   return fetch(url, {
     ...options,
+    credentials: "include",
     signal: controller.signal,
   }).finally(() => clearTimeout(timeout));
 }
@@ -147,6 +148,7 @@ async function fetchAPI<T>(
   const response = await fetchWithTimeout(`${API_BASE}${endpoint}`, {
     ...options,
     headers,
+    credentials: "include",
   });
 
   if (!response.ok) {

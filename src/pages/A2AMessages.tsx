@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MessageCircle, ArrowUpRight, ArrowDownLeft, Bot, Loader2, RefreshCw, CheckCircle, XCircle, Clock } from "lucide-react";
 import { CONVEX_SITE_URL } from "@/lib/convex";
-import { fetchWithTimeout } from "@/lib/api";
+import { fetchWithTimeout, getAccessToken } from "@/lib/api";
 import { formatDistanceToNow } from "date-fns";
 
 interface MessageLog {
@@ -45,9 +45,10 @@ const A2AMessages = () => {
     
     const fetchMoltys = async () => {
       try {
-        const token = localStorage.getItem("moltyverse_access_token");
+        const token = getAccessToken();
         const res = await fetchWithTimeout(`${CONVEX_SITE_URL}/api/moltys?userId=${user.userId}`, {
-          headers: { Authorization: `Bearer ${token}` }
+          credentials: "include",
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
         const data = await res.json();
         // API may return array directly or wrapped in {data: ...}
@@ -76,8 +77,9 @@ const A2AMessages = () => {
 
     const fetchMessages = async () => {
       try {
-        const token = localStorage.getItem("moltyverse_access_token");
+        const token = getAccessToken();
         const res = await fetchWithTimeout(`${CONVEX_SITE_URL}/api/observability/messages`, {
+          credentials: "include",
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
         const data = await res.json();

@@ -12,7 +12,9 @@ import {
   register as apiRegister,
   logout as apiLogout,
   clearTokens,
+  fetchWithTimeout,
 } from "./api";
+import { CONVEX_SITE_URL } from "./convex";
 
 interface AuthContextType {
   user: User | null;
@@ -34,38 +36,75 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     async function checkAuth() {
       const token = getAccessToken();
-      if (!token) {
-        // No token at all - clear any stale user data
-        clearTokens();
-        localStorage.removeItem("moltyverse_oauth");
-        setIsLoading(false);
-        return;
-      }
 
-      // Show stored user immediately for instant UI while verifying
-      const storedUser = getStoredUser();
-      if (storedUser) {
-        setUser(storedUser);
-      }
+      if (token) {
+        // JWT login flow — show stored user immediately, then verify
+        const storedUser = getStoredUser();
+        if (storedUser) {
+          setUser(storedUser);
+        }
 
-      // Verify token is still valid (applies to both JWT and OAuth users)
-      try {
-        const verifiedUser = await verifyToken();
-        if (verifiedUser) {
-          setUser(verifiedUser);
-        } else {
-          // Token invalid, clear everything
+        try {
+          const verifiedUser = await verifyToken();
+          if (verifiedUser) {
+            setUser(verifiedUser);
+          } else {
+            clearTokens();
+            localStorage.removeItem("moltyverse_oauth");
+            setUser(null);
+          }
+        } catch {
           clearTokens();
           localStorage.removeItem("moltyverse_oauth");
           setUser(null);
         }
-      } catch {
-        // Verification failed - don't keep stale session
-        clearTokens();
-        localStorage.removeItem("moltyverse_oauth");
-        setUser(null);
+
+        setIsLoading(false);
+        return;
       }
 
+      // No JWT token — check for an active Better Auth session cookie
+      const isOAuth = localStorage.getItem("moltyverse_oauth") === "true";
+      const storedOAuthUser = getStoredUser();
+
+      if (isOAuth && storedOAuthUser) {
+        // Show stored OAuth user immediately while verifying session
+        setUser(storedOAuthUser);
+      }
+
+      try {
+        const sessionResponse = await fetchWithTimeout(
+          `${CONVEX_SITE_URL}/api/auth/get-session`,
+          { method: "GET", credentials: "include" }
+        );
+
+        if (sessionResponse.ok) {
+          const session = await sessionResponse.json();
+          if (session?.user) {
+            const username =
+              session.user.name ||
+              session.user.email?.split("@")[0] ||
+              "user";
+            const sessionUser: User = {
+              userId: session.user.id,
+              username,
+              email: session.user.email || "",
+            };
+            localStorage.setItem("moltyverse_user", JSON.stringify(sessionUser));
+            localStorage.setItem("moltyverse_oauth", "true");
+            setUser(sessionUser);
+            setIsLoading(false);
+            return;
+          }
+        }
+      } catch {
+        // Session check failed — fall through to clear state
+      }
+
+      // No valid session of any kind
+      clearTokens();
+      localStorage.removeItem("moltyverse_oauth");
+      setUser(null);
       setIsLoading(false);
     }
 

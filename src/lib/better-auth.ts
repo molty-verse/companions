@@ -57,13 +57,13 @@ export const signInWithGoogle = async () => {
  * Returns user data if successful, throws if failed
  */
 export const verifyOneTimeToken = async (token: string): Promise<{
-  userId: string;
+  betterAuthId: string;
   username: string;
   email: string;
 }> => {
   console.log("[OTT] Starting verification...");
-  
-  // Verify the OTT with Better Auth - this should return session data directly
+
+  // Verify the OTT with Better Auth - this sets the session cookie
   const response = await fetchWithTimeout(`${CONVEX_SITE_URL}/api/auth/cross-domain/one-time-token/verify`, {
     method: "POST",
     headers: {
@@ -72,34 +72,34 @@ export const verifyOneTimeToken = async (token: string): Promise<{
     body: JSON.stringify({ token }),
     credentials: "include",
   });
-  
+
   if (!response.ok) {
     const err = await response.text();
     console.error("[OTT] Verification failed:", err);
     throw new Error("Failed to verify one-time token");
   }
-  
+
   // The OTT verify response should contain the session directly
   const data = await response.json();
   console.log("[OTT] Verify response:", data);
-  
+
   // Extract Better Auth user from response
   let betterAuthUser: { id: string; name?: string; email?: string } | null = null;
-  
+
   if (data?.user) {
     betterAuthUser = data.user;
   } else if (data?.session?.user) {
     betterAuthUser = data.session.user;
   }
-  
-  // If not in response, try session endpoint (might fail due to cookies)
+
+  // If not in response, try session endpoint as fallback
   if (!betterAuthUser) {
     console.log("[OTT] Token verified, trying get-session...");
     const sessionResponse = await fetchWithTimeout(`${CONVEX_SITE_URL}/api/auth/get-session`, {
       method: "GET",
       credentials: "include",
     });
-    
+
     if (sessionResponse.ok) {
       const session = await sessionResponse.json();
       console.log("[OTT] Session data:", session);
@@ -108,49 +108,21 @@ export const verifyOneTimeToken = async (token: string): Promise<{
       }
     }
   }
-  
+
   if (!betterAuthUser) {
     console.error("[OTT] No user in any response. Full data:", JSON.stringify(data));
     throw new Error("No user data in session - check console for response structure");
   }
-  
+
   console.log("[OTT] Got Better Auth user:", betterAuthUser);
-  
-  // Now sync to our users table to get a proper userId
-  console.log("[OTT] Syncing to MoltyVerse users table...");
-  const syncResponse = await fetchWithTimeout(`${CONVEX_SITE_URL}/api/auth/oauth-sync`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      betterAuthUserId: betterAuthUser.id,
-      email: betterAuthUser.email,
-      name: betterAuthUser.name,
-    }),
-  });
-  
-  if (!syncResponse.ok) {
-    const err = await syncResponse.text();
-    console.error("[OTT] OAuth sync failed:", err);
-    throw new Error("Failed to sync OAuth user to MoltyVerse");
-  }
-  
-  const syncData = await syncResponse.json();
-  console.log("[OTT] Sync response:", syncData);
-  
-  // Store JWT tokens if provided (for authenticated API calls)
-  if (syncData.accessToken) {
-    localStorage.setItem("moltyverse_access_token", syncData.accessToken);
-  }
-  if (syncData.refreshToken) {
-    localStorage.setItem("moltyverse_refresh_token", syncData.refreshToken);
-  }
-  
-  // Return the synced user data (with proper MoltyVerse userId)
+
+  // Derive a username from name or email
+  const username = betterAuthUser.name || betterAuthUser.email?.split("@")[0] || "user";
+
+  // Return the BA user data directly — session cookie handles auth going forward
   return {
-    userId: syncData.userId,
-    username: syncData.username,
+    betterAuthId: betterAuthUser.id,
+    username,
     email: betterAuthUser.email || "",
   };
 };
