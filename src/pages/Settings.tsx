@@ -24,7 +24,7 @@ interface UserProfile {
   createdAt: number;
 }
 
-const VALID_TABS = ["profile", "api", "notifications", "billing", "integrations"];
+const VALID_TABS = ["profile", "api", "billing"];
 
 const Settings = () => {
   const { user, isAuthenticated } = useAuth();
@@ -256,17 +256,9 @@ const Settings = () => {
                 <Key className="w-4 h-4 mr-2" />
                 API Keys
               </TabsTrigger>
-              <TabsTrigger value="notifications" className="rounded-lg data-[state=active]:bg-background">
-                <Bell className="w-4 h-4 mr-2" />
-                Notifications
-              </TabsTrigger>
               <TabsTrigger value="billing" className="rounded-lg data-[state=active]:bg-background">
                 <CreditCard className="w-4 h-4 mr-2" />
                 Billing
-              </TabsTrigger>
-              <TabsTrigger value="integrations" className="rounded-lg data-[state=active]:bg-background">
-                <Plug className="w-4 h-4 mr-2" />
-                Integrations
               </TabsTrigger>
             </TabsList>
 
@@ -431,59 +423,6 @@ const Settings = () => {
               </motion.div>
             </TabsContent>
 
-            {/* Notifications Tab */}
-            <TabsContent value="notifications">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="card-living"
-              >
-                <h2 className="font-display text-xl font-bold mb-6">Notification Preferences</h2>
-                
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between py-3 border-b border-border">
-                    <div>
-                      <p className="font-medium">Email notifications</p>
-                      <p className="text-sm text-muted-foreground">Receive updates via email</p>
-                    </div>
-                    <Switch 
-                      checked={notificationPrefs.emailNotifications}
-                      onCheckedChange={(checked) => handleNotificationChange("emailNotifications", checked)}
-                      disabled={notifSaving}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between py-3 border-b border-border">
-                    <div>
-                      <p className="font-medium">Push notifications</p>
-                      <p className="text-sm text-muted-foreground">Browser push notifications for important updates</p>
-                    </div>
-                    <Switch 
-                      checked={notificationPrefs.pushNotifications}
-                      onCheckedChange={(checked) => handleNotificationChange("pushNotifications", checked)}
-                      disabled={notifSaving}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between py-3 border-b border-border last:border-0">
-                    <div>
-                      <p className="font-medium">Weekly digest</p>
-                      <p className="text-sm text-muted-foreground">Summary of your Moltys' activity</p>
-                    </div>
-                    <Switch 
-                      checked={notificationPrefs.weeklyDigest}
-                      onCheckedChange={(checked) => handleNotificationChange("weeklyDigest", checked)}
-                      disabled={notifSaving}
-                    />
-                  </div>
-                </div>
-                {notifSaving && (
-                  <p className="text-xs text-muted-foreground mt-4 flex items-center gap-2">
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                    Saving...
-                  </p>
-                )}
-              </motion.div>
-            </TabsContent>
-
             {/* Billing Tab */}
             <TabsContent value="billing">
               <motion.div
@@ -528,53 +467,6 @@ const Settings = () => {
               </motion.div>
             </TabsContent>
 
-            {/* Integrations Tab */}
-            <TabsContent value="integrations">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="card-living"
-              >
-                <h2 className="font-display text-xl font-bold mb-6">Connected Services</h2>
-                
-                <div className="space-y-4">
-                  {[
-                    { name: "Discord", platform: "discord", icon: "🎮", description: "Deploy Moltys to Discord servers" },
-                    { name: "Telegram", platform: "telegram", icon: "✈️", description: "Chat with Moltys on Telegram" },
-                    { name: "WhatsApp", platform: "whatsapp", icon: "💬", description: "Connect via WhatsApp Business" },
-                    { name: "Slack", platform: "slack", icon: "💼", description: "Add Moltys to Slack workspaces" },
-                  ].map((service) => {
-                    const connected = isConnected(service.platform);
-                    const linkedPlatform = profile?.linkedPlatforms?.find(lp => lp.platform === service.platform);
-                    
-                    return (
-                      <div key={service.name} className="flex items-center justify-between p-4 bg-muted/30 rounded-xl hover:bg-muted/50 transition-colors">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-xl bg-background flex items-center justify-center text-2xl">
-                            {service.icon}
-                          </div>
-                          <div>
-                            <p className="font-medium">{service.name}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {connected 
-                                ? `Connected ${linkedPlatform ? formatDate(linkedPlatform.linkedAt) : ""}` 
-                                : service.description}
-                            </p>
-                          </div>
-                        </div>
-                        <Button 
-                          variant={connected ? "outline" : "default"} 
-                          className={connected ? "" : "shadow-warm"}
-                          disabled={!connected}
-                        >
-                          {connected ? "Disconnect" : "Coming Soon"}
-                        </Button>
-                      </div>
-                    );
-                  })}
-                </div>
-              </motion.div>
-            </TabsContent>
           </Tabs>
 
         </div>
