@@ -13,7 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Link, useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Navigation from "@/components/Navigation";
 import { useAuth, useRequireAuth } from "@/lib/auth";
 import { toast } from "@/hooks/use-toast";
@@ -53,6 +53,59 @@ const CreateMolty = () => {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [checkingName, setCheckingName] = useState(false);
   const [nameError, setNameError] = useState("");
+
+  // Pre-provision state
+  const [preProvisionSandboxId, setPreProvisionSandboxId] = useState<string | null>(null);
+  const [preProvisionAuthToken, setPreProvisionAuthToken] = useState<string | null>(null);
+  const [preProvisionStatus, setPreProvisionStatus] = useState<"idle" | "provisioning" | "ready" | "error">("idle");
+  const preProvisionPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Cleanup pre-provisioned sandbox on unmount (if user leaves wizard early)
+  useEffect(() => {
+    return () => {
+      if (preProvisionPollingRef.current) {
+        clearInterval(preProvisionPollingRef.current);
+      }
+      if (preProvisionSandboxId && step < 4) {
+        convex.action("moltys:abandonPreProvision" as any, {
+          sandboxId: preProvisionSandboxId,
+        }).catch(() => {});
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preProvisionSandboxId, step]);
+
+  // Start polling pre-provision status
+  const startPreProvisionPolling = useCallback((sandboxId: string) => {
+    if (preProvisionPollingRef.current) {
+      clearInterval(preProvisionPollingRef.current);
+    }
+
+    preProvisionPollingRef.current = setInterval(async () => {
+      try {
+        // Poll without moltyName to avoid creating Molty record
+        const status = await convex.action("moltys:checkProvisionStatus" as any, {
+          sandboxId,
+        });
+
+        if (status.stage === "pre_provisioned" || status.status === "running") {
+          setPreProvisionStatus("ready");
+          if (preProvisionPollingRef.current) {
+            clearInterval(preProvisionPollingRef.current);
+            preProvisionPollingRef.current = null;
+          }
+        } else if (status.status === "error") {
+          setPreProvisionStatus("error");
+          if (preProvisionPollingRef.current) {
+            clearInterval(preProvisionPollingRef.current);
+            preProvisionPollingRef.current = null;
+          }
+        }
+      } catch {
+        // Ignore polling errors
+      }
+    }, 5000);
+  }, []);
 
   // Check for saved API key on mount
   useEffect(() => {
@@ -117,6 +170,24 @@ const CreateMolty = () => {
 
       if (result?.available) {
         setStep(2);
+
+        // Fire pre-provision in background (only once)
+        if (preProvisionStatus === "idle") {
+          setPreProvisionStatus("provisioning");
+          convex.action("moltys:preProvision" as any, {
+            moltyName: formData.name.trim(),
+          }).then((result: any) => {
+            if (result?.success && result.sandboxId) {
+              setPreProvisionSandboxId(result.sandboxId);
+              setPreProvisionAuthToken(result.authToken || null);
+              startPreProvisionPolling(result.sandboxId);
+            } else {
+              setPreProvisionStatus("error");
+            }
+          }).catch(() => {
+            setPreProvisionStatus("error");
+          });
+        }
       } else {
         const reason = result?.reason || "This name is already taken";
         setNameError(reason);
@@ -131,6 +202,22 @@ const CreateMolty = () => {
       setStep(2); // On error, proceed (backend catches duplicates)
     } finally {
       setCheckingName(false);
+    }
+  };
+
+  // Auto-save API key if not already saved
+  const autoSaveApiKey = async () => {
+    if (formData.apiKey && user?.userId) {
+      try {
+        const checkData = await convex.query("users:myGetApiKey" as any, {});
+        const existingKey = checkData?.apiKey || null;
+        if (existingKey !== formData.apiKey) {
+          await convex.mutation("users:mySaveApiKey" as any, { apiKey: formData.apiKey });
+          setHasSavedKey(true);
+        }
+      } catch (e) {
+        console.error("[CreateMolty] Failed to auto-save API key:", e);
+      }
     }
   };
 
@@ -154,10 +241,98 @@ const CreateMolty = () => {
     }
 
     setIsDeploying(true);
+    // Stop pre-provision polling
+    if (preProvisionPollingRef.current) {
+      clearInterval(preProvisionPollingRef.current);
+      preProvisionPollingRef.current = null;
+    }
 
     try {
-      // Use Convex action which calls Provisioner with service token
-      // Auth handled by session — no userId/tokenHash needed
+      // === Case A: Pre-provision ready — fast path via finalizeMolty ===
+      if (preProvisionSandboxId && preProvisionStatus === "ready") {
+        setDeployStatus("Applying configuration...");
+        const finalizeResult = await convex.action("moltys:finalizeMolty" as any, {
+          sandboxId: preProvisionSandboxId,
+          moltyName: formData.name,
+          apiKey: formData.apiKey,
+          personality: {
+            name: formData.name,
+            vibe: formData.personality || "helpful and friendly",
+          },
+        });
+
+        if (!finalizeResult.success) {
+          throw new Error(finalizeResult.error || "Configuration failed");
+        }
+
+        const moltyId = finalizeResult.moltyId?.moltyId || finalizeResult.moltyId;
+        setCreatedMolty({ id: moltyId, name: formData.name });
+
+        if (preProvisionAuthToken) {
+          sessionStorage.setItem(`molty_token_${preProvisionSandboxId}`, preProvisionAuthToken);
+          sessionStorage.setItem(`molty_token_${moltyId}`, preProvisionAuthToken);
+        }
+
+        await autoSaveApiKey();
+        toast({ title: "Molty created!", description: `${formData.name} is now live` });
+        setStep(4);
+        return;
+      }
+
+      // === Case B: Pre-provision still in progress — wait then finalize ===
+      if (preProvisionSandboxId && preProvisionStatus === "provisioning") {
+        setDeployStatus("Waiting for sandbox...");
+
+        // Poll until pre-provision is ready or fails
+        let waitAttempts = 0;
+        const maxWaitAttempts = 40; // ~200s max
+        while (waitAttempts < maxWaitAttempts) {
+          await new Promise(r => setTimeout(r, 5000));
+          const status = await convex.action("moltys:checkProvisionStatus" as any, {
+            sandboxId: preProvisionSandboxId,
+          });
+          setDeployStatus(status.stageMessage || `Progress: ${status.progress || 0}%`);
+
+          if (status.stage === "pre_provisioned" || status.status === "running") {
+            // Ready — now finalize
+            setDeployStatus("Applying configuration...");
+            const finalizeResult = await convex.action("moltys:finalizeMolty" as any, {
+              sandboxId: preProvisionSandboxId,
+              moltyName: formData.name,
+              apiKey: formData.apiKey,
+              personality: {
+                name: formData.name,
+                vibe: formData.personality || "helpful and friendly",
+              },
+            });
+
+            if (!finalizeResult.success) {
+              throw new Error(finalizeResult.error || "Configuration failed");
+            }
+
+            const moltyId = finalizeResult.moltyId?.moltyId || finalizeResult.moltyId;
+            setCreatedMolty({ id: moltyId, name: formData.name });
+
+            if (preProvisionAuthToken) {
+              sessionStorage.setItem(`molty_token_${preProvisionSandboxId}`, preProvisionAuthToken);
+              sessionStorage.setItem(`molty_token_${moltyId}`, preProvisionAuthToken);
+            }
+
+            await autoSaveApiKey();
+            toast({ title: "Molty created!", description: `${formData.name} is now live` });
+            setStep(4);
+            return;
+          }
+
+          if (status.status === "error") {
+            // Pre-provision failed — fall through to Case C
+            break;
+          }
+          waitAttempts++;
+        }
+      }
+
+      // === Case C: Fallback — full provision (no pre-provision or it failed) ===
       setDeployStatus("Starting provisioning...");
       const provisionResult = await convex.action("moltys:provision" as any, {
         moltyName: formData.name,
@@ -169,71 +344,44 @@ const CreateMolty = () => {
       });
 
       const { sandboxId } = provisionResult;
-      
+
       // Poll for completion (async provisioning)
       setDeployStatus("Setting up sandbox...");
       let attempts = 0;
       const maxAttempts = 60; // 5 minutes max
-      
-      while (attempts < maxAttempts) {
-        await new Promise(r => setTimeout(r, 5000)); // 5 sec intervals
 
-        // Auth handled by session — no userId/tokenHash needed
+      while (attempts < maxAttempts) {
+        await new Promise(r => setTimeout(r, 5000));
+
         const status = await convex.action("moltys:checkProvisionStatus" as any, {
           sandboxId,
           moltyName: formData.name,
         });
         setDeployStatus(status.stageMessage || `Progress: ${status.progress || 0}%`);
-        
+
         if (status.status === "running" && status.moltyId) {
           const moltyId = status.moltyId.moltyId || status.moltyId;
           setCreatedMolty({ id: moltyId, name: formData.name });
-          
-          // Save authToken to sessionStorage (cleared on tab close, safer than localStorage)
+
           if (status.authToken && status.sandboxId) {
             sessionStorage.setItem(`molty_token_${status.sandboxId}`, status.authToken);
             sessionStorage.setItem(`molty_token_${moltyId}`, status.authToken);
           }
-          
-          // Auto-save API key if it's not already saved (prevent duplicates)
-          if (formData.apiKey && user?.userId) {
-            try {
-              // Check if this exact key is already saved
-              const checkData = await convex.query("users:myGetApiKey" as any, {});
-              const existingKey = checkData?.apiKey || null;
 
-              // Only save if key is different from what's already saved
-              if (existingKey !== formData.apiKey) {
-                await convex.mutation("users:mySaveApiKey" as any, {
-                  apiKey: formData.apiKey,
-                });
-                setHasSavedKey(true);
-              }
-            } catch (e) {
-              console.error("[CreateMolty] Failed to auto-save API key:", e);
-              // Don't block success flow if save fails
-            }
-          }
-          
-          toast({
-            title: "Molty created!",
-            description: `${formData.name} is now live`,
-          });
-          
+          await autoSaveApiKey();
+          toast({ title: "Molty created!", description: `${formData.name} is now live` });
           setStep(4);
           return;
         }
-        
+
         if (status.status === "error") {
           throw new Error(status.error || "Provisioning failed");
         }
-        
+
         attempts++;
       }
-      
+
       throw new Error("Provisioning timed out");
-      
-      // Legacy step removed - Convex action handles both provision + create
     } catch (error) {
       console.error("Deploy error:", error);
       const errorMessage = error instanceof Error ? error.message : "Could not create Molty";
