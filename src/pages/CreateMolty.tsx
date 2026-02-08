@@ -59,6 +59,8 @@ const CreateMolty = () => {
   const [preProvisionAuthToken, setPreProvisionAuthToken] = useState<string | null>(null);
   const [preProvisionStatus, setPreProvisionStatus] = useState<"idle" | "provisioning" | "ready" | "error">("idle");
   const preProvisionPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Store the preProvision promise so Deploy can await it (action takes 30-60s for sandbox creation)
+  const preProvisionPromiseRef = useRef<Promise<{ sandboxId: string; authToken: string | null } | null> | null>(null);
 
   // Cleanup pre-provisioned sandbox on unmount (if user leaves wizard early)
   useEffect(() => {
@@ -174,19 +176,23 @@ const CreateMolty = () => {
         // Fire pre-provision in background (only once)
         if (preProvisionStatus === "idle") {
           setPreProvisionStatus("provisioning");
-          convex.action("moltys:preProvision" as any, {
+          const promise = convex.action("moltys:preProvision" as any, {
             moltyName: formData.name.trim(),
           }).then((result: any) => {
             if (result?.success && result.sandboxId) {
               setPreProvisionSandboxId(result.sandboxId);
               setPreProvisionAuthToken(result.authToken || null);
               startPreProvisionPolling(result.sandboxId);
+              return { sandboxId: result.sandboxId as string, authToken: (result.authToken || null) as string | null };
             } else {
               setPreProvisionStatus("error");
+              return null;
             }
           }).catch(() => {
             setPreProvisionStatus("error");
+            return null;
           });
+          preProvisionPromiseRef.current = promise;
         }
       } else {
         const reason = result?.reason || "This name is already taken";
@@ -248,87 +254,82 @@ const CreateMolty = () => {
     }
 
     try {
-      // === Case A: Pre-provision ready — fast path via finalizeMolty ===
-      if (preProvisionSandboxId && preProvisionStatus === "ready") {
-        setDeployStatus("Applying configuration...");
-        const finalizeResult = await convex.action("moltys:finalizeMolty" as any, {
-          sandboxId: preProvisionSandboxId,
-          moltyName: formData.name,
-          apiKey: formData.apiKey,
-          personality: {
-            name: formData.name,
-            vibe: formData.personality || "helpful and friendly",
-          },
-        });
+      // Resolve pre-provision sandboxId if the action is still in flight.
+      // The preProvision Convex action takes 30-60s (Daytona sandbox creation),
+      // so it likely hasn't resolved yet when the user clicks Deploy.
+      let resolvedSandboxId = preProvisionSandboxId;
+      let resolvedAuthToken = preProvisionAuthToken;
 
-        if (!finalizeResult.success) {
-          throw new Error(finalizeResult.error || "Configuration failed");
+      if (!resolvedSandboxId && preProvisionPromiseRef.current && preProvisionStatus !== "error") {
+        setDeployStatus("Waiting for sandbox...");
+        const resolved = await preProvisionPromiseRef.current;
+        if (resolved) {
+          resolvedSandboxId = resolved.sandboxId;
+          resolvedAuthToken = resolved.authToken;
         }
-
-        const moltyId = finalizeResult.moltyId?.moltyId || finalizeResult.moltyId;
-        setCreatedMolty({ id: moltyId, name: formData.name });
-
-        if (preProvisionAuthToken) {
-          sessionStorage.setItem(`molty_token_${preProvisionSandboxId}`, preProvisionAuthToken);
-          sessionStorage.setItem(`molty_token_${moltyId}`, preProvisionAuthToken);
-        }
-
-        await autoSaveApiKey();
-        toast({ title: "Molty created!", description: `${formData.name} is now live` });
-        setStep(4);
-        return;
       }
 
-      // === Case B: Pre-provision still in progress — wait then finalize ===
-      if (preProvisionSandboxId && preProvisionStatus === "provisioning") {
-        setDeployStatus("Waiting for sandbox...");
+      // === Case A: Pre-provision ready — fast path via finalizeMolty ===
+      if (resolvedSandboxId && (preProvisionStatus === "ready" || preProvisionStatus === "provisioning")) {
+        // If status is still "provisioning", the sandbox was just created but setup may still be running.
+        // Poll until it's ready, then finalize.
+        if (preProvisionStatus === "provisioning") {
+          setDeployStatus("Waiting for setup to complete...");
+          let waitAttempts = 0;
+          const maxWaitAttempts = 40; // ~200s max
+          let setupReady = false;
 
-        // Poll until pre-provision is ready or fails
-        let waitAttempts = 0;
-        const maxWaitAttempts = 40; // ~200s max
-        while (waitAttempts < maxWaitAttempts) {
-          await new Promise(r => setTimeout(r, 5000));
-          const status = await convex.action("moltys:checkProvisionStatus" as any, {
-            sandboxId: preProvisionSandboxId,
-          });
-          setDeployStatus(status.stageMessage || `Progress: ${status.progress || 0}%`);
-
-          if (status.stage === "pre_provisioned" || status.status === "running") {
-            // Ready — now finalize
-            setDeployStatus("Applying configuration...");
-            const finalizeResult = await convex.action("moltys:finalizeMolty" as any, {
-              sandboxId: preProvisionSandboxId,
-              moltyName: formData.name,
-              apiKey: formData.apiKey,
-              personality: {
-                name: formData.name,
-                vibe: formData.personality || "helpful and friendly",
-              },
+          while (waitAttempts < maxWaitAttempts) {
+            await new Promise(r => setTimeout(r, 5000));
+            const status = await convex.action("moltys:checkProvisionStatus" as any, {
+              sandboxId: resolvedSandboxId,
             });
+            setDeployStatus(status.stageMessage || `Progress: ${status.progress || 0}%`);
 
-            if (!finalizeResult.success) {
-              throw new Error(finalizeResult.error || "Configuration failed");
+            if (status.stage === "pre_provisioned" || status.status === "running") {
+              setupReady = true;
+              break;
             }
-
-            const moltyId = finalizeResult.moltyId?.moltyId || finalizeResult.moltyId;
-            setCreatedMolty({ id: moltyId, name: formData.name });
-
-            if (preProvisionAuthToken) {
-              sessionStorage.setItem(`molty_token_${preProvisionSandboxId}`, preProvisionAuthToken);
-              sessionStorage.setItem(`molty_token_${moltyId}`, preProvisionAuthToken);
+            if (status.status === "error") {
+              break; // Fall through to Case C
             }
-
-            await autoSaveApiKey();
-            toast({ title: "Molty created!", description: `${formData.name} is now live` });
-            setStep(4);
-            return;
+            waitAttempts++;
           }
 
-          if (status.status === "error") {
-            // Pre-provision failed — fall through to Case C
-            break;
+          if (!setupReady) {
+            // Pre-provision setup failed — fall through to Case C
+            resolvedSandboxId = null;
           }
-          waitAttempts++;
+        }
+
+        if (resolvedSandboxId) {
+          setDeployStatus("Applying configuration...");
+          const finalizeResult = await convex.action("moltys:finalizeMolty" as any, {
+            sandboxId: resolvedSandboxId,
+            moltyName: formData.name,
+            apiKey: formData.apiKey,
+            personality: {
+              name: formData.name,
+              vibe: formData.personality || "helpful and friendly",
+            },
+          });
+
+          if (!finalizeResult.success) {
+            throw new Error(finalizeResult.error || "Configuration failed");
+          }
+
+          const moltyId = finalizeResult.moltyId?.moltyId || finalizeResult.moltyId;
+          setCreatedMolty({ id: moltyId, name: formData.name });
+
+          if (resolvedAuthToken) {
+            sessionStorage.setItem(`molty_token_${resolvedSandboxId}`, resolvedAuthToken);
+            sessionStorage.setItem(`molty_token_${moltyId}`, resolvedAuthToken);
+          }
+
+          await autoSaveApiKey();
+          toast({ title: "Molty created!", description: `${formData.name} is now live` });
+          setStep(4);
+          return;
         }
       }
 
