@@ -59,7 +59,7 @@ const CreateMolty = () => {
     const checkSavedKey = async () => {
       if (!user?.userId) return;
       try {
-        const result = await convex.query("users:hasApiKey" as any, {});
+        const result = await convex.query("users:myHasApiKey" as any, {});
         if (result?.hasKey) {
           setHasSavedKey(true);
         }
