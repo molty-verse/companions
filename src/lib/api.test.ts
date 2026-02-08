@@ -126,8 +126,8 @@ describe("clearTokens", () => {
 // ============================================
 
 describe("API type contracts", () => {
-  it("Molty interface matches backend getByOwner response shape", () => {
-    // Backend moltys:getByOwner returns this shape
+  it("Molty interface matches backend getMyMoltys response shape", () => {
+    // Backend moltys:getMyMoltys returns this shape
     const backendResponse = {
       id: "j57abc123",
       name: "my-molty",

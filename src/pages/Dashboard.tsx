@@ -29,8 +29,7 @@ import Navigation from "@/components/Navigation";
 import { useAuth, useRequireAuth } from "@/lib/auth";
 import { verifyOneTimeToken } from "@/lib/better-auth";
 import { toast } from "@/hooks/use-toast";
-import { convex, CONVEX_URL } from "@/lib/convex";
-import { getAccessToken, fetchWithTimeout } from "@/lib/api";
+import { convex } from "@/lib/convex";
 
 // Molty type from Convex (backend returns 'id' not '_id')
 interface MoltyData {
@@ -252,33 +251,16 @@ const Dashboard = () => {
 
   const fetchMoltys = async () => {
     if (!user?.userId) return;
-    
+
     setIsLoading(true);
     setError(null);
-    
+
     try {
-      // Use direct API call to Convex
-      const response = await fetchWithTimeout(`${CONVEX_URL}/api/query`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          path: "moltys:getByOwner",
-          args: { ownerId: user.userId }
-        }),
-      });
-      
-      const data = await response.json();
-      
-      console.log("Dashboard moltys response:", data);
-      
-      if (data.status === "success") {
-        console.log("Loaded moltys:", data.value);
-        setMoltys(data.value || []);
-      } else {
-        console.error("Convex error:", data.errorMessage);
-        setError("Failed to load your Moltys");
-        setMoltys([]);
-      }
+      // Auth is handled by the Convex client (Better Auth token)
+      const result = await convex.query("moltys:getMyMoltys" as any, {});
+
+      console.log("Dashboard moltys response:", result);
+      setMoltys(result || []);
     } catch (e) {
       console.error("Failed to fetch moltys:", e);
       setError("Failed to load your Moltys");
@@ -307,11 +289,8 @@ const Dashboard = () => {
     
     setIsDeleting(true);
     try {
-      // Call Convex action to delete the Molty
-      const tokenHash = getAccessToken() || "";
+      // Call Convex action to delete the Molty (auth handled by session)
       await convex.action("moltys:deleteMolty" as any, {
-        userId: user.userId,
-        tokenHash,
         moltyId: moltyToDelete.id,
         confirmName: deleteConfirmText,
       });
@@ -352,21 +331,8 @@ const Dashboard = () => {
     const convexAction = action === "stop" ? "moltys:stopMolty" : "moltys:startMolty";
     
     try {
-      // Use Wolf's Convex actions for stop/start
-      const response = await fetchWithTimeout(`${CONVEX_URL}/api/action`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          path: convexAction,
-          args: { userId: user?.userId, moltyId: molty.id }
-        }),
-      });
-
-      const data = await response.json();
-      
-      if (data.status !== "success") {
-        throw new Error(data.errorMessage || `Failed to ${action} Molty`);
-      }
+      // Auth handled by session — no userId needed
+      await convex.action(convexAction as any, { moltyId: molty.id });
       
       // Update local state with new status
       setMoltys(prev => prev.map(m => 

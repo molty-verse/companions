@@ -18,12 +18,8 @@ import Navigation from "@/components/Navigation";
 import { useAuth, useRequireAuth } from "@/lib/auth";
 import { toast } from "@/hooks/use-toast";
 
-// Provisioner API
-import { CONVEX_URL } from "@/lib/convex";
-import { fetchWithTimeout } from "@/lib/api";
+import { convex } from "@/lib/convex";
 
-// Provisioner API - Creates Daytona sandboxes for Moltys
-const PROVISIONER_URL = "https://moltyverse-provisioner-production.up.railway.app";
 
 const personalities = [
   { id: "helpful", label: "Helpful Assistant", emoji: "🤝", desc: "Professional and supportive" },
@@ -63,16 +59,8 @@ const CreateMolty = () => {
     const checkSavedKey = async () => {
       if (!user?.userId) return;
       try {
-        const response = await fetchWithTimeout(`${CONVEX_URL}/api/query`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            path: "users:hasApiKey",
-            args: { userId: user.userId }
-          }),
-        });
-        const data = await response.json();
-        if (data.status === "success" && data.value?.hasKey) {
+        const result = await convex.query("users:hasApiKey" as any, {});
+        if (result?.hasKey) {
           setHasSavedKey(true);
         }
       } catch (e) {
@@ -83,20 +71,12 @@ const CreateMolty = () => {
   }, [user?.userId]);
 
   const useSavedKey = async () => {
-    if (!user?.userId || !user?.tokenHash) return;
+    if (!user?.userId) return;
     setLoadingKey(true);
     try {
-      const response = await fetchWithTimeout(`${CONVEX_URL}/api/query`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          path: "users:getApiKey",
-          args: { userId: user.userId, tokenHash: user.tokenHash }
-        }),
-      });
-      const data = await response.json();
-      if (data.status === "success" && data.value?.apiKey) {
-        setFormData({ ...formData, apiKey: data.value.apiKey });
+      const result = await convex.query("users:getApiKey" as any, {});
+      if (result?.apiKey) {
+        setFormData({ ...formData, apiKey: result.apiKey });
         toast({
           title: "API key loaded",
           description: "Using your saved Claude API key",
@@ -131,20 +111,14 @@ const CreateMolty = () => {
     setNameError("");
     
     try {
-      const response = await fetchWithTimeout(`${CONVEX_URL}/api/query`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          path: "moltys:checkNameAvailable",
-          args: { name: formData.name.trim() }
-        }),
+      const result = await convex.query("moltys:checkNameAvailable" as any, {
+        name: formData.name.trim(),
       });
-      const data = await response.json();
-      
-      if (data.status === "success" && data.value?.available) {
+
+      if (result?.available) {
         setStep(2);
       } else {
-        const reason = data.value?.reason || "This name is already taken";
+        const reason = result?.reason || "This name is already taken";
         setNameError(reason);
         toast({
           title: "Name unavailable",
@@ -180,38 +154,21 @@ const CreateMolty = () => {
     }
 
     setIsDeploying(true);
-    
+
     try {
-      // Get auth token from localStorage (key from api.ts)
-      const accessToken = localStorage.getItem("moltyverse_access_token") || "";
-      
       // Use Convex action which calls Provisioner with service token
-      // This is the secure path: Frontend → Convex → Provisioner
+      // Auth handled by session — no userId/tokenHash needed
       setDeployStatus("Starting provisioning...");
-      const provisionRes = await fetchWithTimeout(`${CONVEX_URL}/api/action`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          path: "moltys:provision",
-          args: {
-            userId: user.userId,
-            tokenHash: accessToken, // For auth verification
-            moltyName: formData.name,
-            apiKey: formData.apiKey,
-            personality: {
-              name: formData.name,
-              vibe: formData.personality || "helpful and friendly",
-            },
-          }
-        }),
+      const provisionResult = await convex.action("moltys:provision" as any, {
+        moltyName: formData.name,
+        apiKey: formData.apiKey,
+        personality: {
+          name: formData.name,
+          vibe: formData.personality || "helpful and friendly",
+        },
       });
 
-      const provisionData = await provisionRes.json();
-      if (provisionData.status !== "success") {
-        throw new Error(provisionData.errorMessage || "Failed to provision");
-      }
-
-      const { sandboxId } = provisionData.value;
+      const { sandboxId } = provisionResult;
       
       // Poll for completion (async provisioning)
       setDeployStatus("Setting up sandbox...");
@@ -220,27 +177,12 @@ const CreateMolty = () => {
       
       while (attempts < maxAttempts) {
         await new Promise(r => setTimeout(r, 5000)); // 5 sec intervals
-        
-        const statusRes = await fetchWithTimeout(`${CONVEX_URL}/api/action`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            path: "moltys:checkProvisionStatus",
-            args: {
-              userId: user.userId,
-              tokenHash: accessToken,
-              sandboxId,
-              moltyName: formData.name,
-            }
-          }),
+
+        // Auth handled by session — no userId/tokenHash needed
+        const status = await convex.action("moltys:checkProvisionStatus" as any, {
+          sandboxId,
+          moltyName: formData.name,
         });
-        
-        const statusData = await statusRes.json();
-        if (statusData.status !== "success") {
-          throw new Error(statusData.errorMessage || "Status check failed");
-        }
-        
-        const status = statusData.value;
         setDeployStatus(status.stageMessage || `Progress: ${status.progress || 0}%`);
         
         if (status.status === "running" && status.moltyId) {
@@ -254,33 +196,16 @@ const CreateMolty = () => {
           }
           
           // Auto-save API key if it's not already saved (prevent duplicates)
-          if (formData.apiKey && user?.userId && user?.tokenHash) {
+          if (formData.apiKey && user?.userId) {
             try {
               // Check if this exact key is already saved
-              const checkRes = await fetchWithTimeout(`${CONVEX_URL}/api/query`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  path: "users:getApiKey",
-                  args: { userId: user.userId, tokenHash: user.tokenHash }
-                }),
-              });
-              const checkData = await checkRes.json();
-              const existingKey = checkData.status === "success" ? checkData.value?.apiKey : null;
-              
+              const checkData = await convex.query("users:getApiKey" as any, {});
+              const existingKey = checkData?.apiKey || null;
+
               // Only save if key is different from what's already saved
               if (existingKey !== formData.apiKey) {
-                await fetchWithTimeout(`${CONVEX_URL}/api/mutation`, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    path: "users:saveApiKey",
-                    args: { 
-                      userId: user.userId, 
-                      tokenHash: user.tokenHash, 
-                      apiKey: formData.apiKey 
-                    }
-                  }),
+                await convex.mutation("users:saveApiKey" as any, {
+                  apiKey: formData.apiKey,
                 });
                 setHasSavedKey(true);
               }

@@ -260,9 +260,9 @@ export function logout(): void {
 // MOLTYS API (Convex queries/mutations)
 // ============================================
 
-export async function getMoltys(ownerId: string): Promise<Molty[]> {
+export async function getMoltys(): Promise<Molty[]> {
   try {
-    return await convex.query("moltys:getByOwner" as any, { ownerId });
+    return await convex.query("moltys:getMyMoltys" as any, {});
   } catch (e) {
     console.error("Failed to get moltys:", e);
     return [];
@@ -279,7 +279,6 @@ export async function getMolty(moltyId: string): Promise<Molty | null> {
 }
 
 export async function createMolty(data: {
-  ownerId: string;
   name: string;
   sandboxId: string;
   gatewayUrl: string;
@@ -421,14 +420,22 @@ export async function getUser(username: string): Promise<User | null> {
   }
 }
 
+export async function getMe(): Promise<User | null> {
+  try {
+    return await convex.query("users:getMe" as any, {});
+  } catch (e) {
+    console.error("Failed to get current user:", e);
+    return null;
+  }
+}
+
 export async function updateProfile(
-  userId: string,
   data: {
     name?: string;
     username?: string;
   }
 ): Promise<{ success: boolean }> {
-  return await convex.mutation("users:updateProfile" as any, { userId, ...data });
+  return await convex.mutation("users:updateProfile" as any, data);
 }
 
 // ============================================

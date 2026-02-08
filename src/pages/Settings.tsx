@@ -73,10 +73,11 @@ const Settings = () => {
   useEffect(() => {
     const fetchProfile = async () => {
       if (!user?.userId) return;
-      
+
       try {
         setLoading(true);
-        const data = await convex.query("users:getById" as any, { userId: user.userId });
+        // Auth handled by session — no userId needed
+        const data = await convex.query("users:getMe" as any, {});
         if (data) {
           setProfile(data as UserProfile);
           setDisplayName(data.username || "");
@@ -88,19 +89,17 @@ const Settings = () => {
         setLoading(false);
       }
     };
-    
+
     fetchProfile();
   }, [user]);
 
   // Load saved API key from Convex
   useEffect(() => {
     const fetchApiKey = async () => {
-      if (!user?.userId || !user?.tokenHash) return;
+      if (!user?.userId) return;
       try {
-        const result = await convex.query("users:getApiKey" as any, {
-          userId: user.userId,
-          tokenHash: user.tokenHash,
-        });
+        // Auth handled by session — no userId/tokenHash needed
+        const result = await convex.query("users:getApiKey" as any, {});
         if (result?.apiKey) {
           setSavedApiKey(result.apiKey);
         }
@@ -116,9 +115,8 @@ const Settings = () => {
     const fetchNotifPrefs = async () => {
       if (!user?.userId) return;
       try {
-        const prefs = await convex.query("users:getNotificationPrefs" as any, {
-          userId: user.userId,
-        });
+        // Auth handled by session — no userId needed
+        const prefs = await convex.query("users:getNotificationPrefs" as any, {});
         if (prefs) {
           setNotificationPrefs({
             emailNotifications: prefs.emailNotifications ?? true,
@@ -136,14 +134,14 @@ const Settings = () => {
   // Handler to update notification preferences
   const handleNotificationChange = async (key: keyof typeof notificationPrefs, value: boolean) => {
     if (!user?.userId) return;
-    
+
     const newPrefs = { ...notificationPrefs, [key]: value };
     setNotificationPrefs(newPrefs);
-    
+
     setNotifSaving(true);
     try {
+      // Auth handled by session — no userId needed
       await convex.mutation("users:updateNotificationPrefs" as any, {
-        userId: user.userId,
         [key]: value,
       });
     } catch (e) {
@@ -159,11 +157,10 @@ const Settings = () => {
     if (!user?.userId) return;
     setSaving(true);
     try {
+      // Auth handled by session — no userId needed
       await convex.mutation("users:updateProfile" as any, {
-        userId: user.userId,
-        name: profile.name || undefined,
-        username: profile.username || undefined,
-        birthday: profile.birthday || undefined,
+        name: displayName || undefined,
+        username: profile?.username || undefined,
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -176,12 +173,11 @@ const Settings = () => {
   };
 
   const handleSaveApiKey = async () => {
-    if (!savedApiKey.trim() || !user?.userId || !user?.tokenHash) return;
+    if (!savedApiKey.trim() || !user?.userId) return;
     setApiKeySaving(true);
     try {
+      // Auth handled by session — no userId/tokenHash needed
       await convex.mutation("users:saveApiKey" as any, {
-        userId: user.userId,
-        tokenHash: user.tokenHash,
         apiKey: savedApiKey.trim(),
       });
       setApiKeySaved(true);
@@ -194,12 +190,10 @@ const Settings = () => {
   };
 
   const handleDeleteApiKey = async () => {
-    if (!user?.userId || !user?.tokenHash) return;
+    if (!user?.userId) return;
     try {
-      await convex.mutation("users:deleteApiKey" as any, {
-        userId: user.userId,
-        tokenHash: user.tokenHash,
-      });
+      // Auth handled by session — no userId/tokenHash needed
+      await convex.mutation("users:deleteApiKey" as any, {});
       setSavedApiKey("");
       setShowApiKey(false);
     } catch (e) {

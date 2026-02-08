@@ -53,21 +53,24 @@ describe("Critical #6: Observability endpoint requires auth", () => {
   });
 });
 
-describe("Critical #5: No 'oauth' tokenHash bypass", () => {
-  it("Dashboard should use actual access token for delete", () => {
+describe("Critical #5: No client-side auth tokens in API args", () => {
+  it("Dashboard should not pass userId/tokenHash to delete action", () => {
     const source = readSource("pages/Dashboard.tsx");
     // Should NOT contain the hardcoded "oauth" tokenHash
     expect(source).not.toContain('tokenHash: "oauth"');
-    // Should use getAccessToken()
-    expect(source).toContain("getAccessToken()");
+    // With Better Auth, should NOT pass tokenHash at all in API args
+    expect(source).not.toContain("tokenHash,");
+    expect(source).not.toContain("tokenHash:");
   });
 
-  it("MoltySettings should use actual access token for delete", () => {
+  it("MoltySettings should not pass userId/tokenHash to delete action", () => {
     const source = readSource("pages/MoltySettings.tsx");
     // Should NOT contain the hardcoded "oauth" tokenHash
     expect(source).not.toContain('tokenHash: "oauth"');
-    // Should use getAccessToken()
-    expect(source).toContain("getAccessToken()");
+    // With Better Auth, delete call should not include userId or tokenHash in args
+    const deleteBlock = source.match(/deleteMolty[\s\S]*?\}\)/);
+    expect(deleteBlock).toBeTruthy();
+    expect(deleteBlock![0]).not.toContain("userId:");
   });
 
   it("MoltySettings should use singleton Convex client", () => {

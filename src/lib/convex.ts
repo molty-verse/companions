@@ -3,6 +3,7 @@
 // Auth endpoints use HTTP routes in api.ts
 
 import { ConvexHttpClient } from "convex/browser";
+import { ConvexReactClient } from "convex/react";
 
 // The Convex deployment URL
 const CONVEX_URL = import.meta.env.VITE_CONVEX_URL;
@@ -10,10 +11,13 @@ if (!CONVEX_URL) {
   throw new Error("VITE_CONVEX_URL environment variable is required");
 }
 
-// Create a singleton client
+// React client for ConvexBetterAuthProvider (handles auth token automatically)
+export const convexReactClient = new ConvexReactClient(CONVEX_URL);
+
+// HTTP client for imperative queries/mutations/actions outside React hooks
 export const convex = new ConvexHttpClient(CONVEX_URL);
 
-// Helper to set auth token for authenticated queries
+// Helper to set auth token on the HTTP client for imperative calls
 export function setConvexAuth(token: string | null) {
   if (token) {
     convex.setAuth(token);

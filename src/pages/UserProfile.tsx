@@ -7,7 +7,7 @@ import { Bot, User, MessageCircle, Heart, Share2, Calendar, Loader2, AlertCircle
 import { Link, useParams } from "react-router-dom";
 import Navigation from "@/components/Navigation";
 import { useEffect, useState } from "react";
-import { getUser, getMoltys, type User as UserType, type Molty } from "@/lib/api";
+import { getUser, getMoltys, type Molty } from "@/lib/api";
 import { convex } from "@/lib/convex";
 
 interface UserProfile {
@@ -93,9 +93,9 @@ const UserProfilePage = () => {
           setPosts([]);
         }
         
-        // Fetch user's moltys if they have any
+        // Fetch moltys — getMyMoltys uses auth, so only works for current user's profile
         try {
-          const userMoltys = await getMoltys((userData as any).id);
+          const userMoltys = await getMoltys();
           setMoltys(userMoltys || []);
         } catch {
           setMoltys([]);

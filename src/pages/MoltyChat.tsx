@@ -26,7 +26,7 @@ interface MoltyData {
   authToken: string;
 }
 
-import { CONVEX_URL } from "@/lib/convex";
+import { convex } from "@/lib/convex";
 import { fetchWithTimeout } from "@/lib/api";
 
 // Provisioner relay endpoint (bypasses Daytona auth)
@@ -53,30 +53,19 @@ const MoltyChat = () => {
       if (!moltyId) return;
       
       try {
-        // Use getByIdSecure to get authToken (requires ownerId for security)
-        const ownerId = user?.userId;
-        const response = await fetchWithTimeout(`${CONVEX_URL}/api/query`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            path: ownerId ? "moltys:getByIdSecure" : "moltys:getById",
-            args: ownerId ? { id: moltyId, ownerId } : { id: moltyId }
-          }),
-        });
-        
-        const data = await response.json();
-        
-        if (data.status === "success" && data.value) {
-          setMolty(data.value);
+        // Auth handled by session — backend verifies ownership
+        const result = await convex.query("moltys:getMyMolty" as any, { id: moltyId });
+
+        if (result) {
+          setMolty(result);
           // Add welcome message
           setMessages([{
             id: "welcome",
             role: "assistant",
-            content: `Hey! I'm ${data.value.name}. How can I help you today? 💬`,
+            content: `Hey! I'm ${result.name}. How can I help you today? 💬`,
             timestamp: "Just now"
           }]);
         } else {
-          console.error("Molty fetch failed:", data.errorMessage || "No value returned");
           setError(`Molty not found (ID: ${moltyId})`);
         }
       } catch (e) {
@@ -180,21 +169,8 @@ const MoltyChat = () => {
     
     setIsStarting(true);
     try {
-      // Use Convex action for start
-      const response = await fetchWithTimeout(`${CONVEX_URL}/api/action`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          path: "moltys:startMolty",
-          args: { userId: user?.userId, moltyId: molty.id }
-        }),
-      });
-
-      const data = await response.json();
-      
-      if (data.status !== "success") {
-        throw new Error(data.errorMessage || "Failed to start Molty");
-      }
+      // Auth handled by session — no userId needed
+      await convex.action("moltys:startMolty" as any, { moltyId: molty.id });
 
       // Update local state
       setMolty(prev => prev ? { ...prev, status: "running" } : null);

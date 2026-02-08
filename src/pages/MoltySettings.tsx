@@ -23,7 +23,6 @@ import {
 } from "@/components/ui/dialog";
 import Navigation from "@/components/Navigation";
 import { convex } from "@/lib/convex";
-import { getAccessToken } from "@/lib/api";
 
 // Available models for selection
 const AVAILABLE_MODELS = [
@@ -96,24 +95,13 @@ const MoltySettings = () => {
 
     const fetchMolty = async () => {
       try {
-        // Fetch molty details
-        const result = await convex.query("moltys:getById" as any, { id: moltyId });
-        
+        // Auth handled by session — backend verifies ownership
+        const result = await convex.query("moltys:getMyMolty" as any, { id: moltyId });
+
         if (!result) {
           toast({
             title: "Molty not found",
-            description: "This Molty doesn't exist.",
-            variant: "destructive",
-          });
-          navigate("/dashboard");
-          return;
-        }
-
-        // Check ownership - user.userId is the Convex user ID
-        if (result.ownerId !== user?.userId) {
-          toast({
-            title: "Access denied",
-            description: "You don't own this Molty.",
+            description: "This Molty doesn't exist or you don't have access.",
             variant: "destructive",
           });
           navigate("/dashboard");
@@ -215,11 +203,8 @@ const MoltySettings = () => {
     setDeleting(true);
     
     try {
-      // Call the delete action
-      const tokenHash = getAccessToken() || "";
+      // Auth handled by session — no userId/tokenHash needed
       await convex.action("moltys:deleteMolty" as any, {
-        userId: user.userId,
-        tokenHash,
         moltyId: molty.id,
         confirmName: deleteConfirmText,
       });
