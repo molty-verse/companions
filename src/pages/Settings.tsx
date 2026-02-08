@@ -99,7 +99,7 @@ const Settings = () => {
       if (!user?.userId) return;
       try {
         // Auth handled by session — no userId/tokenHash needed
-        const result = await convex.query("users:getApiKey" as any, {});
+        const result = await convex.query("users:myGetApiKey" as any, {});
         if (result?.apiKey) {
           setSavedApiKey(result.apiKey);
         }
@@ -116,7 +116,7 @@ const Settings = () => {
       if (!user?.userId) return;
       try {
         // Auth handled by session — no userId needed
-        const prefs = await convex.query("users:getNotificationPrefs" as any, {});
+        const prefs = await convex.query("users:myGetNotificationPrefs" as any, {});
         if (prefs) {
           setNotificationPrefs({
             emailNotifications: prefs.emailNotifications ?? true,
@@ -141,7 +141,7 @@ const Settings = () => {
     setNotifSaving(true);
     try {
       // Auth handled by session — no userId needed
-      await convex.mutation("users:updateNotificationPrefs" as any, {
+      await convex.mutation("users:myUpdateNotificationPrefs" as any, {
         [key]: value,
       });
     } catch (e) {
@@ -158,7 +158,7 @@ const Settings = () => {
     setSaving(true);
     try {
       // Auth handled by session — no userId needed
-      await convex.mutation("users:updateProfile" as any, {
+      await convex.mutation("users:myUpdateProfile" as any, {
         name: displayName || undefined,
         username: profile?.username || undefined,
       });
@@ -177,7 +177,7 @@ const Settings = () => {
     setApiKeySaving(true);
     try {
       // Auth handled by session — no userId/tokenHash needed
-      await convex.mutation("users:saveApiKey" as any, {
+      await convex.mutation("users:mySaveApiKey" as any, {
         apiKey: savedApiKey.trim(),
       });
       setApiKeySaved(true);
@@ -193,7 +193,7 @@ const Settings = () => {
     if (!user?.userId) return;
     try {
       // Auth handled by session — no userId/tokenHash needed
-      await convex.mutation("users:deleteApiKey" as any, {});
+      await convex.mutation("users:myDeleteApiKey" as any, {});
       setSavedApiKey("");
       setShowApiKey(false);
     } catch (e) {

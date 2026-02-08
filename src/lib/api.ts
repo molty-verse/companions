@@ -256,7 +256,7 @@ export async function updateProfile(
     username?: string;
   }
 ): Promise<{ success: boolean }> {
-  return await convex.mutation("users:updateProfile" as any, data);
+  return await convex.mutation("users:myUpdateProfile" as any, data);
 }
 
 // ============================================

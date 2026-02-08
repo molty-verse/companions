@@ -74,7 +74,7 @@ const CreateMolty = () => {
     if (!user?.userId) return;
     setLoadingKey(true);
     try {
-      const result = await convex.query("users:getApiKey" as any, {});
+      const result = await convex.query("users:myGetApiKey" as any, {});
       if (result?.apiKey) {
         setFormData({ ...formData, apiKey: result.apiKey });
         toast({
@@ -199,12 +199,12 @@ const CreateMolty = () => {
           if (formData.apiKey && user?.userId) {
             try {
               // Check if this exact key is already saved
-              const checkData = await convex.query("users:getApiKey" as any, {});
+              const checkData = await convex.query("users:myGetApiKey" as any, {});
               const existingKey = checkData?.apiKey || null;
 
               // Only save if key is different from what's already saved
               if (existingKey !== formData.apiKey) {
-                await convex.mutation("users:saveApiKey" as any, {
+                await convex.mutation("users:mySaveApiKey" as any, {
                   apiKey: formData.apiKey,
                 });
                 setHasSavedKey(true);
