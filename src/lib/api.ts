@@ -9,7 +9,10 @@
 import { convex, setConvexAuth } from "./convex";
 
 // .convex.site is for HTTP actions (auth)
-const CONVEX_SITE_URL = import.meta.env.VITE_CONVEX_SITE_URL || "https://colorless-gull-839.convex.site";
+const CONVEX_SITE_URL = import.meta.env.VITE_CONVEX_SITE_URL;
+if (!CONVEX_SITE_URL) {
+  throw new Error("VITE_CONVEX_SITE_URL environment variable is required");
+}
 const API_BASE = `${CONVEX_SITE_URL}/api`;
 
 // Token storage keys

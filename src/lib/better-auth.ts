@@ -10,7 +10,10 @@ import { crossDomainClient } from "@convex-dev/better-auth/client/plugins";
 import { fetchWithTimeout } from "./api";
 
 // Convex site URL for auth endpoints
-const CONVEX_SITE_URL = import.meta.env.VITE_CONVEX_SITE_URL || "https://colorless-gull-839.convex.site";
+const CONVEX_SITE_URL = import.meta.env.VITE_CONVEX_SITE_URL;
+if (!CONVEX_SITE_URL) {
+  throw new Error("VITE_CONVEX_SITE_URL environment variable is required");
+}
 
 export const authClient = createAuthClient({
   baseURL: CONVEX_SITE_URL,

@@ -12,8 +12,13 @@ import { fetchWithTimeout } from './api';
 // Stripe publishable key (safe to expose in frontend)
 const STRIPE_PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
 
-// Provisioner URL for backend operations
-export const PROVISIONER_URL = import.meta.env.VITE_PROVISIONER_URL || 'https://moltyverse-provisioner-production.up.railway.app';
+// Guard against accidentally exposing a secret key in the client bundle
+if (STRIPE_PUBLISHABLE_KEY && !STRIPE_PUBLISHABLE_KEY.startsWith("pk_")) {
+  throw new Error("VITE_STRIPE_PUBLISHABLE_KEY must be a publishable key (pk_), not a secret key (sk_)");
+}
+
+// Provisioner URL for backend operations (required for checkout)
+export const PROVISIONER_URL = import.meta.env.VITE_PROVISIONER_URL || "";
 
 // Singleton Stripe instance
 let stripePromise: Promise<Stripe | null> | null = null;
@@ -100,6 +105,9 @@ export async function createCheckoutSession(params: {
   successUrl?: string;
   cancelUrl?: string;
 }): Promise<{ sessionId: string; url: string }> {
+  if (!PROVISIONER_URL) {
+    throw new Error("VITE_PROVISIONER_URL is not configured");
+  }
   const response = await fetchWithTimeout(`${PROVISIONER_URL}/api/create-checkout-session`, {
     method: 'POST',
     headers: {

@@ -4,8 +4,11 @@
 
 import { ConvexHttpClient } from "convex/browser";
 
-// The Convex deployment URL (use env var with fallback)
-const CONVEX_URL = import.meta.env.VITE_CONVEX_URL || "https://colorless-gull-839.convex.cloud";
+// The Convex deployment URL
+const CONVEX_URL = import.meta.env.VITE_CONVEX_URL;
+if (!CONVEX_URL) {
+  throw new Error("VITE_CONVEX_URL environment variable is required");
+}
 
 // Create a singleton client
 export const convex = new ConvexHttpClient(CONVEX_URL);
@@ -20,7 +23,10 @@ export function setConvexAuth(token: string | null) {
 }
 
 // Convex Site URL for HTTP routes (auth, posts API, etc.)
-export const CONVEX_SITE_URL = import.meta.env.VITE_CONVEX_SITE_URL || "https://colorless-gull-839.convex.site";
+export const CONVEX_SITE_URL = import.meta.env.VITE_CONVEX_SITE_URL;
+if (!CONVEX_SITE_URL) {
+  throw new Error("VITE_CONVEX_SITE_URL environment variable is required");
+}
 
 // Re-export for convenience
 export { CONVEX_URL };

@@ -43,9 +43,9 @@ interface MoltyData {
   discordConnected?: boolean;
 }
 
-// Discord Bot OAuth URL (replace with actual bot client ID)
-const DISCORD_BOT_CLIENT_ID = "1468567298213150949"; // Moltyverse-000-dev for now
-const getDiscordInviteUrl = (moltyId: string) => 
+// Discord Bot OAuth URL
+const DISCORD_BOT_CLIENT_ID = import.meta.env.VITE_DISCORD_BOT_CLIENT_ID || "";
+const getDiscordInviteUrl = (moltyId: string) =>
   `https://discord.com/api/oauth2/authorize?client_id=${DISCORD_BOT_CLIENT_ID}&permissions=274877991936&scope=bot&state=${moltyId}`;
 
 // Convex API for mutations/actions
