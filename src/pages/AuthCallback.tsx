@@ -17,7 +17,7 @@ const AuthCallback = () => {
   const [error, setError] = useState<string | null>(null);
   const [authComplete, setAuthComplete] = useState(false);
 
-  // Handle OTT verification
+  // Handle OTT verification (with guard against React Strict Mode double-invoke)
   useEffect(() => {
     const ott = searchParams.get("ott");
     console.log("[AuthCallback] Received OTT:", ott ? "present" : "missing");
@@ -29,6 +29,14 @@ const AuthCallback = () => {
       setTimeout(() => navigate("/login"), 2000);
       return;
     }
+
+    // Guard against double verification (React Strict Mode)
+    const ottKey = `ott_verified_${ott.slice(0, 16)}`;
+    if (sessionStorage.getItem(ottKey)) {
+      console.log("[AuthCallback] OTT already verified, skipping");
+      return;
+    }
+    sessionStorage.setItem(ottKey, "true");
 
     // Verify the one-time token and get user data
     verifyOneTimeToken(ott)
