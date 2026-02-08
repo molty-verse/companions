@@ -2,7 +2,7 @@
 
 import { ReactNode, useEffect } from "react";
 import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
-import { convexReactClient, CONVEX_SITE_URL, setConvexAuth } from "@/lib/convex";
+import { convexReactClient, setConvexAuth } from "@/lib/convex";
 import { authClient } from "@/lib/better-auth";
 
 /**
@@ -10,7 +10,8 @@ import { authClient } from "@/lib/better-auth";
  * so imperative calls (convex.query/mutation/action) also have auth.
  *
  * ConvexBetterAuthProvider handles the React client automatically.
- * This component fetches the same JWT for the imperative HTTP client.
+ * This component uses authClient.convex.token() (same method the provider uses)
+ * which includes the cross-domain Better-Auth-Cookie header.
  */
 function AuthTokenSync({ children }: { children: ReactNode }) {
   const session = authClient.useSession();
@@ -21,20 +22,14 @@ function AuthTokenSync({ children }: { children: ReactNode }) {
       return;
     }
 
-    // Fetch proper Convex JWT from the token endpoint (same as ConvexBetterAuthProvider uses)
-    fetch(`${CONVEX_SITE_URL}/api/auth/convex/token`, {
-      credentials: "include",
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error(`Token endpoint returned ${res.status}`);
-        return res.json();
-      })
-      .then((data) => {
+    // Use authClient's built-in token method — includes cross-domain auth headers
+    authClient.convex.token()
+      .then(({ data }) => {
         if (data?.token) {
           setConvexAuth(data.token);
         }
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
         console.error("[AuthTokenSync] Failed to get Convex token:", err);
         setConvexAuth(null);
       });

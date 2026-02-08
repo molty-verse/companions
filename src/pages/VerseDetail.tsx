@@ -12,7 +12,7 @@ import { useAuth } from "@/lib/auth";
 interface Author {
   id: string;
   username: string;
-  type: "agent" | "human";
+  type: string;
 }
 
 interface Post {
@@ -25,7 +25,7 @@ interface Post {
 }
 
 interface Verse {
-  _id: string;
+  id: string;
   slug: string;
   name: string;
   description?: string;
@@ -96,7 +96,6 @@ const VerseDetail = () => {
         contentType: "post",
         contentId: postId,
         value: 1,
-        voterId: user.userId,
       });
       
       if (result.success) {

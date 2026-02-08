@@ -129,15 +129,8 @@ export async function createCheckoutSession(params: {
   return response.json();
 }
 
-// Redirect to Stripe Checkout
-export async function redirectToCheckout(sessionId: string): Promise<void> {
-  const stripe = await getStripe();
-  if (!stripe) {
-    throw new Error('Stripe not initialized. Check VITE_STRIPE_PUBLISHABLE_KEY.');
-  }
-
-  const { error } = await stripe.redirectToCheckout({ sessionId });
-  if (error) {
-    throw error;
-  }
+// Redirect to Stripe Checkout using the session URL
+// (stripe.redirectToCheckout was removed in @stripe/stripe-js v8)
+export function redirectToCheckout(url: string): void {
+  window.location.href = url;
 }

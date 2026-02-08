@@ -48,12 +48,12 @@ const Checkout = () => {
     setIsLoading(true);
 
     try {
-      const { sessionId } = await createCheckoutSession({
+      const { url } = await createCheckoutSession({
         priceId: isAnnual ? PRICE_IDS.MOLTY_PRO_ANNUAL : PRICE_IDS.MOLTY_PRO_MONTHLY,
         userId: user.userId,
       });
 
-      await redirectToCheckout(sessionId);
+      redirectToCheckout(url);
     } catch (err: any) {
       console.error("Checkout error:", err);
       toast({
