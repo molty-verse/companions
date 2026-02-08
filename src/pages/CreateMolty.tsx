@@ -54,6 +54,8 @@ const CreateMolty = () => {
   const [hasSavedKey, setHasSavedKey] = useState(false);
   const [loadingKey, setLoadingKey] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [checkingName, setCheckingName] = useState(false);
+  const [nameError, setNameError] = useState("");
 
   // Check for saved API key on mount
   useEffect(() => {
@@ -114,6 +116,46 @@ const CreateMolty = () => {
       });
     } finally {
       setLoadingKey(false);
+    }
+  };
+
+  // Check if name is available before proceeding to step 2
+  const handleNextFromStep1 = async () => {
+    if (!formData.name.trim()) {
+      setNameError("Name is required");
+      return;
+    }
+    
+    setCheckingName(true);
+    setNameError("");
+    
+    try {
+      const response = await fetch(`${CONVEX_URL}/api/query`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          path: "moltys:checkNameAvailable",
+          args: { name: formData.name.trim() }
+        }),
+      });
+      const data = await response.json();
+      
+      if (data.status === "success" && data.value?.available) {
+        setStep(2);
+      } else {
+        const reason = data.value?.reason || "This name is already taken";
+        setNameError(reason);
+        toast({
+          title: "Name unavailable",
+          description: reason,
+          variant: "destructive",
+        });
+      }
+    } catch (e) {
+      console.error("Failed to check name:", e);
+      setStep(2); // On error, proceed (backend catches duplicates)
+    } finally {
+      setCheckingName(false);
     }
   };
 
@@ -355,9 +397,15 @@ const CreateMolty = () => {
                     id="name"
                     placeholder="e.g., CodeBuddy, CreativeBot..."
                     value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="h-12 rounded-xl"
+                    onChange={(e) => {
+                      setFormData({ ...formData, name: e.target.value });
+                      setNameError(""); // Clear error when typing
+                    }}
+                    className={`h-12 rounded-xl ${nameError ? 'border-red-500 focus:ring-red-500' : ''}`}
                   />
+                  {nameError && (
+                    <p className="text-sm text-red-500">{nameError}</p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -394,12 +442,21 @@ const CreateMolty = () => {
 
               <div className="flex justify-end mt-8">
                 <Button 
-                  onClick={() => setStep(2)} 
-                  disabled={!formData.name}
+                  onClick={handleNextFromStep1} 
+                  disabled={!formData.name || checkingName}
                   className="shadow-warm"
                 >
-                  Next Step
-                  <ArrowRight className="w-4 h-4 ml-2" />
+                  {checkingName ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Checking...
+                    </>
+                  ) : (
+                    <>
+                      Next Step
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </>
+                  )}
                 </Button>
               </div>
             </motion.div>
