@@ -3,7 +3,8 @@
 
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { User, getMe } from "./api";
+import { User } from "./api";
+import { convex, setConvexAuth } from "./convex";
 import { authClient } from "./better-auth";
 
 interface AuthContextType {
@@ -25,13 +26,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Use Better Auth session hook to track auth state
   const session = authClient.useSession();
 
-  // Fetch Convex user profile and update state
+  // Fetch Convex JWT, set it on the HTTP client, then ensure user record exists
   const refreshUser = useCallback(async () => {
+    // 1. Get Convex JWT via Better Auth (includes cross-domain headers)
     try {
-      const convexUser = await getMe();
+      const { data: tokenData } = await authClient.convex.token();
+      if (tokenData?.token) {
+        setConvexAuth(tokenData.token);
+      } else {
+        // No token — can't authenticate with Convex
+        setConvexAuth(null);
+      }
+    } catch {
+      setConvexAuth(null);
+    }
+
+    // 2. Call ensureUser (creates user record on first login)
+    try {
+      const convexUser = await convex.mutation("users:ensureUser" as any, {});
       if (convexUser) {
         setUser({
-          userId: (convexUser as any).id || convexUser.userId,
+          userId: convexUser.id || convexUser.userId,
           username: convexUser.username,
           email: convexUser.email,
           displayName: convexUser.displayName,
@@ -43,10 +58,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
     } catch {
-      // getMe failed — fall through to session fallback
+      // ensureUser failed — fall through to session fallback
     }
 
-    // Fallback to session data if getMe() returns null
+    // 3. Fallback to session data
     if (session.data?.user) {
       const sessionUser = session.data.user;
       setUser({
