@@ -33,29 +33,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Check for existing session on mount
   useEffect(() => {
     async function checkAuth() {
-      // Check for OAuth user first (no JWT verification needed)
-      const isOAuth = localStorage.getItem("moltyverse_oauth") === "true";
-      const storedUser = getStoredUser();
-      
-      if (isOAuth && storedUser) {
-        console.log("[Auth] OAuth user found, skipping token verification");
-        setUser(storedUser);
-        setIsLoading(false);
-        return;
-      }
-      
       const token = getAccessToken();
       if (!token) {
+        // No token at all - clear any stale user data
+        clearTokens();
+        localStorage.removeItem("moltyverse_oauth");
         setIsLoading(false);
         return;
       }
 
-      // Try stored user first for instant UI
+      // Show stored user immediately for instant UI while verifying
+      const storedUser = getStoredUser();
       if (storedUser) {
         setUser(storedUser);
       }
 
-      // Verify token is still valid (only for JWT auth, not OAuth)
+      // Verify token is still valid (applies to both JWT and OAuth users)
       try {
         const verifiedUser = await verifyToken();
         if (verifiedUser) {
@@ -67,16 +60,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(null);
         }
       } catch {
-        // If verification fails but we have a stored user, keep them logged in
-        // This handles the case where the verify endpoint doesn't exist
-        if (storedUser) {
-          console.log("[Auth] Token verification failed but using stored user");
-          setUser(storedUser);
-        } else {
-          clearTokens();
-          localStorage.removeItem("moltyverse_oauth");
-          setUser(null);
-        }
+        // Verification failed - don't keep stale session
+        clearTokens();
+        localStorage.removeItem("moltyverse_oauth");
+        setUser(null);
       }
 
       setIsLoading(false);

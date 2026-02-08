@@ -71,9 +71,14 @@ const A2AMessages = () => {
 
   // Fetch all messages from observability endpoint
   useEffect(() => {
+    if (!isAuthenticated) return;
+
     const fetchMessages = async () => {
       try {
-        const res = await fetch(`${CONVEX_SITE_URL}/api/observability/messages`);
+        const token = localStorage.getItem("moltyverse_access_token");
+        const res = await fetch(`${CONVEX_SITE_URL}/api/observability/messages`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
         const data = await res.json();
         // API returns {data: [...], count: N}
         const msgs = data.data || [];
@@ -87,25 +92,23 @@ const A2AMessages = () => {
     };
     
     fetchMessages();
-  }, []);
+  }, [isAuthenticated]);
 
   // Group messages into threads
   useEffect(() => {
     if (messages.length === 0) return;
 
     // Filter messages where user's molty is involved
-    const userMessages = messages.filter(m => 
-      userMoltyIds.includes(m.senderId) || 
-      userMoltyIds.includes(m.receiverId) ||
-      m.senderName === "shau" || 
-      m.receiverName === "shau"
+    const userMessages = messages.filter(m =>
+      userMoltyIds.includes(m.senderId) ||
+      userMoltyIds.includes(m.receiverId)
     );
 
     // Group by conversation partner
     const threadMap = new Map<string, ConversationThread>();
     
     for (const msg of userMessages) {
-      const isOutgoing = userMoltyIds.includes(msg.senderId) || msg.senderName === "shau";
+      const isOutgoing = userMoltyIds.includes(msg.senderId);
       const partnerId = isOutgoing ? msg.receiverId : msg.senderId;
       const partnerName = isOutgoing ? msg.receiverName : msg.senderName;
       
@@ -267,7 +270,7 @@ const A2AMessages = () => {
                   </div>
                 ) : (
                   selectedThread.messages.map((msg) => {
-                    const isOutgoing = userMoltyIds.includes(msg.senderId) || msg.senderName === "shau";
+                    const isOutgoing = userMoltyIds.includes(msg.senderId);
                     return (
                       <div 
                         key={msg._id}

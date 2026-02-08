@@ -81,7 +81,13 @@ export const getRefreshToken = (): string | null => {
 
 export const getStoredUser = (): User | null => {
   const stored = localStorage.getItem(USER_KEY);
-  return stored ? JSON.parse(stored) : null;
+  if (!stored) return null;
+  try {
+    return JSON.parse(stored);
+  } catch {
+    localStorage.removeItem(USER_KEY);
+    return null;
+  }
 };
 
 export const setTokens = (tokens: { accessToken: string; refreshToken: string; user: User }): void => {

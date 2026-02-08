@@ -22,9 +22,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import Navigation from "@/components/Navigation";
-import { ConvexHttpClient } from "convex/browser";
-
-const convex = new ConvexHttpClient(import.meta.env.VITE_CONVEX_URL || "https://colorless-gull-839.convex.cloud");
+import { convex } from "@/lib/convex";
+import { getAccessToken } from "@/lib/api";
 
 // Available models for selection
 const AVAILABLE_MODELS = [
@@ -217,9 +216,10 @@ const MoltySettings = () => {
     
     try {
       // Call the delete action
+      const tokenHash = getAccessToken() || "";
       await convex.action("moltys:deleteMolty" as any, {
         userId: user.userId,
-        tokenHash: "oauth", // OAuth users don't have tokenHash - backend skips verification
+        tokenHash,
         moltyId: molty.id,
         confirmName: deleteConfirmText,
       });

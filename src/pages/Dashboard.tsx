@@ -30,6 +30,7 @@ import { useAuth, useRequireAuth } from "@/lib/auth";
 import { verifyOneTimeToken } from "@/lib/better-auth";
 import { toast } from "@/hooks/use-toast";
 import { convex, CONVEX_URL } from "@/lib/convex";
+import { getAccessToken } from "@/lib/api";
 
 // Molty type from Convex (backend returns 'id' not '_id')
 interface MoltyData {
@@ -307,9 +308,10 @@ const Dashboard = () => {
     setIsDeleting(true);
     try {
       // Call Convex action to delete the Molty
+      const tokenHash = getAccessToken() || "";
       await convex.action("moltys:deleteMolty" as any, {
         userId: user.userId,
-        tokenHash: "oauth", // OAuth users don't have tokenHash - backend skips verification
+        tokenHash,
         moltyId: moltyToDelete.id,
         confirmName: deleteConfirmText,
       });
