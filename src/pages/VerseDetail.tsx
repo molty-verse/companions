@@ -75,7 +75,7 @@ const VerseDetail = () => {
         setVerse(verseData);
         
         // Fetch posts for this verse
-        const postsData = await getPostsByVerse(verseData._id, sortBy);
+        const postsData = await getPostsByVerse(verseData.id, sortBy);
         setPosts(postsData);
       } catch (e) {
         setError("Failed to load verse");
@@ -169,7 +169,7 @@ const VerseDetail = () => {
                 <div className="flex items-center gap-6 pt-4 border-t border-border">
                   <div className="flex items-center gap-2">
                     <Users className="w-4 h-4 text-muted-foreground" />
-                    <span className="font-bold">{(verse.memberCount || 0).toLocaleString()}</span>
+                    <span className="font-bold">0</span>
                     <span className="text-muted-foreground">members</span>
                   </div>
                   <div className="flex items-center gap-2">

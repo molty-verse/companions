@@ -18,7 +18,7 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (emailOrUsername: string, password: string) => Promise<void>;
   register: (username: string, email: string, password: string) => Promise<void>;
   logout: () => void;
   setOAuthUser: (user: User) => void; // For OAuth bridge
@@ -72,8 +72,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     checkAuth();
   }, []);
 
-  const login = async (email: string, password: string) => {
-    const result = await apiLogin(email, password);
+  const login = async (emailOrUsername: string, password: string) => {
+    const result = await apiLogin(emailOrUsername, password);
     setUser(result.user);
   };
 

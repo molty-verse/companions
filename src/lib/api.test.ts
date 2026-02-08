@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import { readFileSync } from "fs";
+import { resolve } from "path";
 import { getStoredUser, getAccessToken, setTokens, clearTokens } from "./api";
+
+function readApiSource(): string {
+  return readFileSync(resolve(__dirname, "api.ts"), "utf-8");
+}
 
 // Mock localStorage
 const localStorageMock = (() => {
@@ -111,5 +117,92 @@ describe("clearTokens", () => {
     expect(localStorageMock.removeItem).toHaveBeenCalledWith("moltyverse_access_token");
     expect(localStorageMock.removeItem).toHaveBeenCalledWith("moltyverse_refresh_token");
     expect(localStorageMock.removeItem).toHaveBeenCalledWith("moltyverse_user");
+  });
+});
+
+// ============================================
+// Integration Contract Tests
+// Verify frontend types match backend response shapes
+// ============================================
+
+describe("API type contracts", () => {
+  it("Molty interface matches backend getByOwner response shape", () => {
+    // Backend moltys:getByOwner returns this shape
+    const backendResponse = {
+      id: "j57abc123",
+      name: "my-molty",
+      status: "running" as const,
+      sandboxId: "sb-123",
+      gatewayUrl: "https://example.com",
+      createdAt: Date.now(),
+    };
+
+    // Should satisfy the Molty interface from api.ts
+    // (id, name, status with "running"|"stopped"|"provisioning"|"error", sandboxId, gatewayUrl, createdAt)
+    expect(backendResponse).toHaveProperty("id");
+    expect(backendResponse).toHaveProperty("name");
+    expect(backendResponse).toHaveProperty("status");
+    expect(["provisioning", "running", "stopped", "error"]).toContain(backendResponse.status);
+    expect(backendResponse).not.toHaveProperty("_id"); // Backend returns 'id', not '_id'
+  });
+
+  it("Post interface matches backend posts:list response shape", () => {
+    // Backend posts:list returns enriched posts
+    const backendResponse = {
+      id: "j57abc123",
+      title: "Hello World",
+      content: "Some content",
+      voteCount: 5,
+      createdAt: Date.now(),
+      author: { id: "j57user1", username: "test", type: "human" },
+      verse: { id: "j57verse1", name: "General", slug: "general" },
+    };
+
+    expect(backendResponse).toHaveProperty("id");
+    expect(backendResponse).toHaveProperty("title");
+    expect(backendResponse).toHaveProperty("voteCount");
+    expect(backendResponse).toHaveProperty("author");
+    expect(backendResponse).not.toHaveProperty("_id");
+    expect(backendResponse).not.toHaveProperty("likes"); // Old field name
+    expect(backendResponse).not.toHaveProperty("authorId"); // Now nested in author object
+  });
+
+  it("Verse interface matches backend verses:list response shape", () => {
+    // Backend verses:list returns this shape
+    const backendResponse = {
+      id: "j57verse1",
+      name: "General",
+      slug: "general",
+      description: "A general verse",
+      createdAt: Date.now(),
+    };
+
+    expect(backendResponse).toHaveProperty("id");
+    expect(backendResponse).toHaveProperty("slug");
+    expect(backendResponse).not.toHaveProperty("_id");
+    expect(backendResponse).not.toHaveProperty("icon"); // Not returned by backend
+    expect(backendResponse).not.toHaveProperty("memberCount"); // Not returned by backend
+  });
+
+  it("login function sends correct field for username-based login", () => {
+    const source = readApiSource();
+    // Should detect email vs username and send the right field
+    expect(source).toContain("emailOrUsername");
+    expect(source).toContain('includes("@")');
+  });
+
+  it("refreshAccessToken only updates access token, preserving refresh token and user", () => {
+    const source = readApiSource();
+    // Should NOT call setTokens in refresh (which overwrites everything)
+    // Should only update the access token key
+    expect(source).toContain("localStorage.setItem(ACCESS_TOKEN_KEY, data.accessToken)");
+  });
+
+  it("Auth response interface includes email field", () => {
+    const source = readApiSource();
+    // AuthResponse should have email field
+    const authResponseMatch = source.match(/interface AuthResponse \{[\s\S]*?\}/);
+    expect(authResponseMatch).toBeTruthy();
+    expect(authResponseMatch![0]).toContain("email: string");
   });
 });

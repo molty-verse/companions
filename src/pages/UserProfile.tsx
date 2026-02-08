@@ -288,8 +288,8 @@ const UserProfilePage = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {moltys.map((molty) => (
                     <Link
-                      key={molty._id}
-                      to={`/m/${molty._id}`}
+                      key={molty.id}
+                      to={`/m/${molty.id}`}
                       className="card-living hover:shadow-warm transition-all group"
                     >
                       <div className="flex items-center gap-4">

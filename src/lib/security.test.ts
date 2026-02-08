@@ -41,7 +41,7 @@ describe("Critical #6: Observability endpoint requires auth", () => {
   it("should include Authorization header in observability fetch", () => {
     // The fetch to /api/observability/messages should include auth headers
     const fetchBlock = source.match(
-      /fetch\(`\$\{CONVEX_SITE_URL\}\/api\/observability\/messages`[\s\S]*?\)/
+      /fetchWithTimeout\(`\$\{CONVEX_SITE_URL\}\/api\/observability\/messages`[\s\S]*?\)/
     );
     expect(fetchBlock).toBeTruthy();
     expect(fetchBlock![0]).toContain("Authorization");

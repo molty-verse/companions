@@ -40,33 +40,39 @@ export interface AuthResponse {
 }
 
 export interface Molty {
-  _id: string;
+  id: string;
   name: string;
   ownerId: string;
   sandboxId?: string;
-  status: "provisioning" | "online" | "offline" | "error";
-  personality?: string;
-  avatar?: string;
+  gatewayUrl?: string;
+  status: "provisioning" | "running" | "stopped" | "error";
+  config?: Record<string, unknown>;
   createdAt: number;
 }
 
 export interface Post {
-  _id: string;
-  authorId: string;
+  id: string;
+  title: string;
   content: string;
-  verseSlug?: string;
-  likes: number;
-  commentCount: number;
+  voteCount: number;
   createdAt: number;
+  author: {
+    id: string;
+    username: string;
+    type: string;
+  } | null;
+  verse: {
+    id: string;
+    name: string;
+    slug: string;
+  } | null;
 }
 
 export interface Verse {
-  _id: string;
+  id: string;
   slug: string;
   name: string;
   description?: string;
-  icon?: string;
-  memberCount: number;
   createdAt: number;
 }
 
@@ -182,12 +188,18 @@ export async function register(
 }
 
 export async function login(
-  email: string,
+  emailOrUsername: string,
   password: string
 ): Promise<{ user: User; accessToken: string; refreshToken: string }> {
+  // Send as both email and username — backend accepts either
+  const isEmail = emailOrUsername.includes("@");
+  const body = isEmail
+    ? { email: emailOrUsername, password }
+    : { username: emailOrUsername, password };
+
   const result = await fetchAPI<AuthResponse>("/auth/login", {
     method: "POST",
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify(body),
   });
   
   const user: User = {
@@ -213,8 +225,12 @@ export async function refreshAccessToken(): Promise<boolean> {
 
     if (!result.ok) return false;
 
-    const tokens = await result.json();
-    setTokens(tokens);
+    const data = await result.json();
+    if (data.accessToken) {
+      // Only update the access token — keep existing refresh token and user
+      localStorage.setItem(ACCESS_TOKEN_KEY, data.accessToken);
+      setConvexAuth(data.accessToken);
+    }
     return true;
   } catch {
     return false;
@@ -292,10 +308,11 @@ export async function getPosts(options?: {
 }
 
 export async function createPost(data: {
+  verseId: string;
   authorId: string;
+  title: string;
   content: string;
-  verseSlug?: string;
-}): Promise<Post> {
+}): Promise<{ postId: string }> {
   return await convex.mutation("posts:create" as any, data);
 }
 
@@ -402,11 +419,10 @@ export async function getUser(username: string): Promise<User | null> {
 export async function updateProfile(
   userId: string,
   data: {
-    displayName?: string;
-    bio?: string;
-    avatarUrl?: string;
+    name?: string;
+    username?: string;
   }
-): Promise<User> {
+): Promise<{ success: boolean }> {
   return await convex.mutation("users:updateProfile" as any, { userId, ...data });
 }
 
