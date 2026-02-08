@@ -7,6 +7,7 @@
  */
 
 import { loadStripe, type Stripe } from '@stripe/stripe-js';
+import { fetchWithTimeout } from './api';
 
 // Stripe publishable key (safe to expose in frontend)
 const STRIPE_PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
@@ -99,7 +100,7 @@ export async function createCheckoutSession(params: {
   successUrl?: string;
   cancelUrl?: string;
 }): Promise<{ sessionId: string; url: string }> {
-  const response = await fetch(`${PROVISIONER_URL}/api/create-checkout-session`, {
+  const response = await fetchWithTimeout(`${PROVISIONER_URL}/api/create-checkout-session`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

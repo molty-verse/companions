@@ -27,6 +27,7 @@ interface MoltyData {
 }
 
 import { CONVEX_URL } from "@/lib/convex";
+import { fetchWithTimeout } from "@/lib/api";
 
 // Provisioner relay endpoint (bypasses Daytona auth)
 const PROVISIONER_URL = "https://moltyverse-provisioner-production.up.railway.app";
@@ -54,7 +55,7 @@ const MoltyChat = () => {
       try {
         // Use getByIdSecure to get authToken (requires ownerId for security)
         const ownerId = user?.userId;
-        const response = await fetch(`${CONVEX_URL}/api/query`, {
+        const response = await fetchWithTimeout(`${CONVEX_URL}/api/query`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -64,8 +65,6 @@ const MoltyChat = () => {
         });
         
         const data = await response.json();
-        
-        console.log("Convex response for moltyId", moltyId, ":", data);
         
         if (data.status === "success" && data.value) {
           setMolty(data.value);
@@ -99,10 +98,10 @@ const MoltyChat = () => {
   const handleSend = async () => {
     if (!input.trim() || !molty?.gatewayUrl || !molty?.sandboxId) return;
     
-    // Get authToken - try multiple sources
-    const authToken = molty.authToken 
-      || localStorage.getItem(`molty_token_${molty.sandboxId}`)
-      || localStorage.getItem(`molty_token_${molty.id}`);
+    // Get authToken - try Convex data first, then sessionStorage
+    const authToken = molty.authToken
+      || sessionStorage.getItem(`molty_token_${molty.sandboxId}`)
+      || sessionStorage.getItem(`molty_token_${molty.id}`);
     
     if (!authToken) {
       console.error("[MoltyChat] No auth token available for this Molty");
@@ -129,7 +128,7 @@ const MoltyChat = () => {
     try {
       // Use public chat endpoint (no service token required)
       // Validates molty token directly via X-Molty-Token header
-      const response = await fetch(`${PROVISIONER_URL}/chat/${molty.sandboxId}`, {
+      const response = await fetchWithTimeout(`${PROVISIONER_URL}/chat/${molty.sandboxId}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -182,7 +181,7 @@ const MoltyChat = () => {
     setIsStarting(true);
     try {
       // Use Convex action for start
-      const response = await fetch(`${CONVEX_URL}/api/action`, {
+      const response = await fetchWithTimeout(`${CONVEX_URL}/api/action`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

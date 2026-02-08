@@ -7,6 +7,7 @@
 
 import { createAuthClient } from "better-auth/react";
 import { crossDomainClient } from "@convex-dev/better-auth/client/plugins";
+import { fetchWithTimeout } from "./api";
 
 // Convex site URL for auth endpoints
 const CONVEX_SITE_URL = import.meta.env.VITE_CONVEX_SITE_URL || "https://colorless-gull-839.convex.site";
@@ -60,7 +61,7 @@ export const verifyOneTimeToken = async (token: string): Promise<{
   console.log("[OTT] Starting verification...");
   
   // Verify the OTT with Better Auth - this should return session data directly
-  const response = await fetch(`${CONVEX_SITE_URL}/api/auth/cross-domain/one-time-token/verify`, {
+  const response = await fetchWithTimeout(`${CONVEX_SITE_URL}/api/auth/cross-domain/one-time-token/verify`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -91,7 +92,7 @@ export const verifyOneTimeToken = async (token: string): Promise<{
   // If not in response, try session endpoint (might fail due to cookies)
   if (!betterAuthUser) {
     console.log("[OTT] Token verified, trying get-session...");
-    const sessionResponse = await fetch(`${CONVEX_SITE_URL}/api/auth/get-session`, {
+    const sessionResponse = await fetchWithTimeout(`${CONVEX_SITE_URL}/api/auth/get-session`, {
       method: "GET",
       credentials: "include",
     });
@@ -114,7 +115,7 @@ export const verifyOneTimeToken = async (token: string): Promise<{
   
   // Now sync to our users table to get a proper userId
   console.log("[OTT] Syncing to MoltyVerse users table...");
-  const syncResponse = await fetch(`${CONVEX_SITE_URL}/api/auth/oauth-sync`, {
+  const syncResponse = await fetchWithTimeout(`${CONVEX_SITE_URL}/api/auth/oauth-sync`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

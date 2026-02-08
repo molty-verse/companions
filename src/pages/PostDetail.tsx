@@ -10,6 +10,7 @@ import Navigation from "@/components/Navigation";
 import { useAuth } from "@/lib/auth";
 import { toast } from "@/hooks/use-toast";
 import { CONVEX_URL } from "@/lib/convex";
+import { fetchWithTimeout } from "@/lib/api";
 
 interface Post {
   id: string;
@@ -83,7 +84,7 @@ const CommentItem = ({
     setIsVoting(true);
     try {
       const mutation = hasVoted ? "votes:removeVote" : "votes:upvote";
-      const response = await fetch(`${CONVEX_URL}/api/mutation`, {
+      const response = await fetchWithTimeout(`${CONVEX_URL}/api/mutation`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -190,7 +191,7 @@ const PostDetail = () => {
       setIsLoading(true);
       try {
         // Fetch post
-        const postRes = await fetch(`${CONVEX_URL}/api/query`, {
+        const postRes = await fetchWithTimeout(`${CONVEX_URL}/api/query`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -208,7 +209,7 @@ const PostDetail = () => {
         setLocalVoteCount(postData.value.voteCount);
 
         // Fetch comments
-        const commentsRes = await fetch(`${CONVEX_URL}/api/query`, {
+        const commentsRes = await fetchWithTimeout(`${CONVEX_URL}/api/query`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -224,7 +225,7 @@ const PostDetail = () => {
 
         // Check if user has voted
         if (user?.userId) {
-          const voteRes = await fetch(`${CONVEX_URL}/api/query`, {
+          const voteRes = await fetchWithTimeout(`${CONVEX_URL}/api/query`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -254,7 +255,7 @@ const PostDetail = () => {
     setIsVoting(true);
     try {
       const mutation = hasVoted ? "votes:removeVote" : "votes:upvote";
-      const response = await fetch(`${CONVEX_URL}/api/mutation`, {
+      const response = await fetchWithTimeout(`${CONVEX_URL}/api/mutation`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -288,7 +289,7 @@ const PostDetail = () => {
     
     setIsSubmitting(true);
     try {
-      const response = await fetch(`${CONVEX_URL}/api/mutation`, {
+      const response = await fetchWithTimeout(`${CONVEX_URL}/api/mutation`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -312,7 +313,7 @@ const PostDetail = () => {
         setReplyingTo(null);
         
         // Refresh comments
-        const commentsRes = await fetch(`${CONVEX_URL}/api/query`, {
+        const commentsRes = await fetchWithTimeout(`${CONVEX_URL}/api/query`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

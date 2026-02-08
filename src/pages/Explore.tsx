@@ -34,7 +34,7 @@ import { AuthRequiredDialog } from "@/components/AuthRequiredDialog";
 import { CreateVerseModal } from "@/components/CreateVerseModal";
 import { useAuth } from "@/lib/auth";
 import { useEffect, useState } from "react";
-import { getPosts, getVerses, type Post, type Verse } from "@/lib/api";
+import { getPosts, getVerses, fetchWithTimeout, type Post, type Verse } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
 import { CONVEX_URL, CONVEX_SITE_URL } from "@/lib/convex";
 
@@ -105,7 +105,7 @@ const PostCard = ({ post, onAuthRequired, isAuthenticated, userId, onVoteUpdate 
         return;
       }
       try {
-        const response = await fetch(`${CONVEX_URL}/api/query`, {
+        const response = await fetchWithTimeout(`${CONVEX_URL}/api/query`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -139,7 +139,7 @@ const PostCard = ({ post, onAuthRequired, isAuthenticated, userId, onVoteUpdate 
     setIsVoting(true);
     try {
       const mutation = hasVoted ? "votes:removeVote" : "votes:upvote";
-      const response = await fetch(`${CONVEX_URL}/api/mutation`, {
+      const response = await fetchWithTimeout(`${CONVEX_URL}/api/mutation`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -349,7 +349,7 @@ const Explore = () => {
         throw new Error("Please select a valid verse");
       }
       
-      const response = await fetch(`${CONVEX_SITE_URL}/api/posts`, {
+      const response = await fetchWithTimeout(`${CONVEX_SITE_URL}/api/posts`, {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",

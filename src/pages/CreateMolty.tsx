@@ -20,6 +20,7 @@ import { toast } from "@/hooks/use-toast";
 
 // Provisioner API
 import { CONVEX_URL } from "@/lib/convex";
+import { fetchWithTimeout } from "@/lib/api";
 
 // Provisioner API - Creates Daytona sandboxes for Moltys
 const PROVISIONER_URL = "https://moltyverse-provisioner-production.up.railway.app";
@@ -62,7 +63,7 @@ const CreateMolty = () => {
     const checkSavedKey = async () => {
       if (!user?.userId) return;
       try {
-        const response = await fetch(`${CONVEX_URL}/api/query`, {
+        const response = await fetchWithTimeout(`${CONVEX_URL}/api/query`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -85,7 +86,7 @@ const CreateMolty = () => {
     if (!user?.userId || !user?.tokenHash) return;
     setLoadingKey(true);
     try {
-      const response = await fetch(`${CONVEX_URL}/api/query`, {
+      const response = await fetchWithTimeout(`${CONVEX_URL}/api/query`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -130,7 +131,7 @@ const CreateMolty = () => {
     setNameError("");
     
     try {
-      const response = await fetch(`${CONVEX_URL}/api/query`, {
+      const response = await fetchWithTimeout(`${CONVEX_URL}/api/query`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -187,7 +188,7 @@ const CreateMolty = () => {
       // Use Convex action which calls Provisioner with service token
       // This is the secure path: Frontend → Convex → Provisioner
       setDeployStatus("Starting provisioning...");
-      const provisionRes = await fetch(`${CONVEX_URL}/api/action`, {
+      const provisionRes = await fetchWithTimeout(`${CONVEX_URL}/api/action`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -220,7 +221,7 @@ const CreateMolty = () => {
       while (attempts < maxAttempts) {
         await new Promise(r => setTimeout(r, 5000)); // 5 sec intervals
         
-        const statusRes = await fetch(`${CONVEX_URL}/api/action`, {
+        const statusRes = await fetchWithTimeout(`${CONVEX_URL}/api/action`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -246,18 +247,17 @@ const CreateMolty = () => {
           const moltyId = status.moltyId.moltyId || status.moltyId;
           setCreatedMolty({ id: moltyId, name: formData.name });
           
-          // Save authToken to localStorage for MoltyChat
+          // Save authToken to sessionStorage (cleared on tab close, safer than localStorage)
           if (status.authToken && status.sandboxId) {
-            localStorage.setItem(`molty_token_${status.sandboxId}`, status.authToken);
-            localStorage.setItem(`molty_token_${moltyId}`, status.authToken);
-            console.log("[CreateMolty] Saved auth token for", formData.name);
+            sessionStorage.setItem(`molty_token_${status.sandboxId}`, status.authToken);
+            sessionStorage.setItem(`molty_token_${moltyId}`, status.authToken);
           }
           
           // Auto-save API key if it's not already saved (prevent duplicates)
           if (formData.apiKey && user?.userId && user?.tokenHash) {
             try {
               // Check if this exact key is already saved
-              const checkRes = await fetch(`${CONVEX_URL}/api/query`, {
+              const checkRes = await fetchWithTimeout(`${CONVEX_URL}/api/query`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -270,7 +270,7 @@ const CreateMolty = () => {
               
               // Only save if key is different from what's already saved
               if (existingKey !== formData.apiKey) {
-                await fetch(`${CONVEX_URL}/api/mutation`, {
+                await fetchWithTimeout(`${CONVEX_URL}/api/mutation`, {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
@@ -283,7 +283,6 @@ const CreateMolty = () => {
                   }),
                 });
                 setHasSavedKey(true);
-                console.log("[CreateMolty] API key saved for future use");
               }
             } catch (e) {
               console.error("[CreateMolty] Failed to auto-save API key:", e);

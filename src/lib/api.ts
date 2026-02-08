@@ -105,20 +105,37 @@ export const clearTokens = (): void => {
   setConvexAuth(null);
 };
 
+// Fetch with timeout using AbortController
+const DEFAULT_TIMEOUT_MS = 30_000; // 30 seconds
+
+export function fetchWithTimeout(
+  url: string,
+  options: RequestInit = {},
+  timeoutMs: number = DEFAULT_TIMEOUT_MS
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  return fetch(url, {
+    ...options,
+    signal: controller.signal,
+  }).finally(() => clearTimeout(timeout));
+}
+
 // HTTP API helpers (for auth endpoints)
 async function fetchAPI<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
   const token = getAccessToken();
-  
+
   const headers: HeadersInit = {
     "Content-Type": "application/json",
     ...(token && { Authorization: `Bearer ${token}` }),
     ...options.headers,
   };
 
-  const response = await fetch(`${API_BASE}${endpoint}`, {
+  const response = await fetchWithTimeout(`${API_BASE}${endpoint}`, {
     ...options,
     headers,
   });
@@ -132,7 +149,7 @@ async function fetchAPI<T>(
       clearTokens();
       window.location.href = "/login";
     }
-    
+
     const error = await response.json().catch(() => ({ message: "Request failed" }));
     throw new Error(error.message || error.error || `HTTP ${response.status}`);
   }
@@ -188,7 +205,7 @@ export async function refreshAccessToken(): Promise<boolean> {
   if (!refreshToken) return false;
 
   try {
-    const result = await fetch(`${API_BASE}/auth/refresh`, {
+    const result = await fetchWithTimeout(`${API_BASE}/auth/refresh`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refreshToken }),

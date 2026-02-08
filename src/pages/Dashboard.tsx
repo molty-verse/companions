@@ -30,7 +30,7 @@ import { useAuth, useRequireAuth } from "@/lib/auth";
 import { verifyOneTimeToken } from "@/lib/better-auth";
 import { toast } from "@/hooks/use-toast";
 import { convex, CONVEX_URL } from "@/lib/convex";
-import { getAccessToken } from "@/lib/api";
+import { getAccessToken, fetchWithTimeout } from "@/lib/api";
 
 // Molty type from Convex (backend returns 'id' not '_id')
 interface MoltyData {
@@ -258,7 +258,7 @@ const Dashboard = () => {
     
     try {
       // Use direct API call to Convex
-      const response = await fetch(`${CONVEX_URL}/api/query`, {
+      const response = await fetchWithTimeout(`${CONVEX_URL}/api/query`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -353,7 +353,7 @@ const Dashboard = () => {
     
     try {
       // Use Wolf's Convex actions for stop/start
-      const response = await fetch(`${CONVEX_URL}/api/action`, {
+      const response = await fetchWithTimeout(`${CONVEX_URL}/api/action`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
